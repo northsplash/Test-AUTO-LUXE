@@ -1,0 +1,542 @@
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard, Users, Calendar, CreditCard, UserCheck, Car,
+  TrendingUp, BarChart2, LogOut, Menu, X, Plus, Edit2, Trash2,
+  Eye, DollarSign, Activity, ChevronUp, ChevronDown, Globe
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { signOut } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
+import { money } from '@/lib/data';
+
+type AdminTab = 'dashboard' | 'customers' | 'appointments' | 'employees' | 'payments' | 'visitors';
+
+function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
+  return (
+    <div className={`admin-stat ${color}`}>
+      <div className="admin-stat-header">
+        <span>{label}</span>
+        <div className="admin-stat-icon"><Icon size={18} /></div>
+      </div>
+      <strong>{value}</strong>
+      {trend && (
+        <div className="admin-stat-trend">
+          <ChevronUp size={14} /> {trend}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    pending: 'badge-yellow', confirmed: 'badge-blue', in_progress: 'badge-purple',
+    completed: 'badge-green', cancelled: 'badge-red', active: 'badge-green',
+    paused: 'badge-yellow', inactive: 'badge-gray',
+    detailer: 'badge-blue', d2d_agent: 'badge-purple', manager: 'badge-green',
+  };
+  return <span className={`status-badge ${colors[status] ?? 'badge-gray'}`}>{status.replace('_', ' ')}</span>;
+}
+
+export default function Admin() {
+  const { user, profile, loading } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<AdminTab>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [customers, setCustomers] = useState<Profile[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [visits, setVisits] = useState<{ page: string; count: number }[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Employee form
+  const [showEmpForm, setShowEmpForm] = useState(false);
+  const [empForm, setEmpForm] = useState({ name: '', role: 'detailer', phone: '', email: '', commission_rate: 0 });
+  const [empSubmitting, setEmpSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && (!user || profile?.role !== 'admin')) {
+      navigate('/portal');
+    }
+  }, [user, profile, loading, navigate]);
+
+  useEffect(() => {
+    if (!user || profile?.role !== 'admin') return;
+    (async () => {
+      const [custs, apts, pays, emps] = await Promise.all([
+        supabase.from('profiles').select('*').eq('role', 'customer').order('created_at', { ascending: false }),
+        supabase.from('appointments').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('employees').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      // Aggregate site visits by page
+      const { data: visitData } = await supabase
+        .from('site_visits')
+        .select('page')
+        .gte('visited_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      const pageMap: Record<string, number> = {};
+      (visitData ?? []).forEach(v => { pageMap[v.page] = (pageMap[v.page] ?? 0) + 1; });
+      const visitAgg = Object.entries(pageMap).map(([page, count]) => ({ page, count })).sort((a, b) => b.count - a.count);
+
+      setCustomers(custs.data ?? []);
+      setAppointments(apts.data ?? []);
+      setPayments(pays.data ?? []);
+      setEmployees(emps.data ?? []);
+      setVisits(visitAgg);
+      setDataLoading(false);
+    })();
+  }, [user, profile]);
+
+  const totalRevenue = payments.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
+  const monthRevenue = payments.filter(p => {
+    const d = new Date(p.created_at);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && p.status === 'completed';
+  }).reduce((s, p) => s + p.amount, 0);
+
+  const detailers = employees.filter(e => e.role === 'detailer');
+  const d2dAgents = employees.filter(e => e.role === 'd2d_agent');
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmpSubmitting(true);
+    const { data } = await supabase.from('employees').insert(empForm).select().single();
+    if (data) setEmployees(prev => [data, ...prev]);
+    setEmpSubmitting(false);
+    setShowEmpForm(false);
+    setEmpForm({ name: '', role: 'detailer', phone: '', email: '', commission_rate: 0 });
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    await supabase.from('employees').delete().eq('id', id);
+    setEmployees(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleUpdateAptStatus = async (id: string, status: string) => {
+    await supabase.from('appointments').update({ status, ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}) }).eq('id', id);
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
+  };
+
+  const handleSignOut = async () => {
+    await signOut().catch(() => {});
+    navigate('/');
+  };
+
+  if (loading || dataLoading) {
+    return <div className="portal-loading"><div className="portal-spinner" /><p>Loading admin panel...</p></div>;
+  }
+
+  if (profile?.role !== 'admin') {
+    return <div className="portal-loading"><p>Access denied. Admin only.</p><Link to="/portal">Go to Portal</Link></div>;
+  }
+
+  const navItems = [
+    { id: 'dashboard' as AdminTab, label: 'Dashboard', Icon: LayoutDashboard },
+    { id: 'customers' as AdminTab, label: 'Customers', Icon: Users },
+    { id: 'appointments' as AdminTab, label: 'Appointments', Icon: Calendar },
+    { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
+    { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
+    { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
+  ];
+
+  // Monthly cashflow chart data (last 6 months)
+  const cashflowData = (() => {
+    const months: { label: string; revenue: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const label = d.toLocaleDateString('en-US', { month: 'short' });
+      const revenue = payments.filter(p => {
+        const pd = new Date(p.created_at);
+        return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear() && p.status === 'completed';
+      }).reduce((s, p) => s + p.amount, 0);
+      months.push({ label, revenue });
+    }
+    return months;
+  })();
+  const maxRevenue = Math.max(...cashflowData.map(m => m.revenue), 1);
+
+  return (
+    <div className="portal-layout">
+      <aside className={`portal-sidebar admin-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        <div className="sidebar-header">
+          <Link to="/" className="sidebar-brand">
+            <div className="brand-mark brand-mark-sm">NS</div>
+            <div><strong>ADMIN PANEL</strong><small>NORTH SPLASH</small></div>
+          </Link>
+          <button className="sidebar-close" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
+        </div>
+
+        <div className="sidebar-user">
+          <div className="sidebar-avatar admin-avatar">A</div>
+          <div><p>{profile?.full_name ?? 'Admin'}</p><span>Administrator</span></div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navItems.map(({ id, label, Icon }) => (
+            <button key={id} className={`sidebar-item ${tab === id ? 'sidebar-active' : ''}`} onClick={() => { setTab(id); setSidebarOpen(false); }}>
+              <Icon size={18} /> {label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <Link to="/portal" className="sidebar-item"><Eye size={18} /> Customer View</Link>
+          <Link to="/" className="sidebar-item"><Globe size={18} /> View Site</Link>
+          <button className="sidebar-item sidebar-signout" onClick={handleSignOut}><LogOut size={18} /> Sign Out</button>
+        </div>
+      </aside>
+
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+
+      <main className="portal-main">
+        <div className="portal-topbar">
+          <button className="sidebar-toggle" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
+          <div className="topbar-title">
+            <h1>{navItems.find(n => n.id === tab)?.label}</h1>
+          </div>
+        </div>
+
+        <div className="portal-content">
+
+          {/* DASHBOARD */}
+          {tab === 'dashboard' && (
+            <div className="admin-dashboard">
+              <div className="admin-stats-row">
+                <StatCard label="Total Revenue" value={money(totalRevenue)} icon={DollarSign} color="stat-gold" />
+                <StatCard label="This Month" value={money(monthRevenue)} icon={TrendingUp} color="stat-green" />
+                <StatCard label="Customers" value={String(customers.length)} icon={Users} />
+                <StatCard label="Appointments" value={String(appointments.length)} icon={Calendar} />
+                <StatCard label="Team Members" value={String(employees.length)} icon={UserCheck} />
+                <StatCard label="Site Visits (30d)" value={String(visits.reduce((s, v) => s + v.count, 0))} icon={Activity} />
+              </div>
+
+              {/* Cashflow Chart */}
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h3><BarChart2 size={18} /> Monthly Cash Flow</h3>
+                </div>
+                <div className="cashflow-chart">
+                  {cashflowData.map(m => (
+                    <div key={m.label} className="cashflow-bar-wrap">
+                      <div className="cashflow-amount">{m.revenue > 0 ? money(m.revenue) : '—'}</div>
+                      <div className="cashflow-bar-bg">
+                        <div
+                          className="cashflow-bar-fill"
+                          style={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
+                        />
+                      </div>
+                      <div className="cashflow-label">{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="admin-two-col">
+                {/* Recent appointments */}
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h3><Calendar size={18} /> Recent Appointments</h3>
+                    <button className="btn-outline btn-sm" onClick={() => setTab('appointments')}>View All</button>
+                  </div>
+                  <div className="admin-table">
+                    {appointments.slice(0, 5).map(a => (
+                      <div key={a.id} className="admin-row">
+                        <div className="admin-row-main">
+                          <strong>{a.service_name}</strong>
+                          <span>{new Date(a.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="admin-row-right">
+                          <StatusBadge status={a.status} />
+                          <strong>{money(a.price)}</strong>
+                        </div>
+                      </div>
+                    ))}
+                    {appointments.length === 0 && <p className="empty-text">No appointments yet.</p>}
+                  </div>
+                </div>
+
+                {/* Detailer breakdown */}
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h3><UserCheck size={18} /> Team Overview</h3>
+                    <button className="btn-outline btn-sm" onClick={() => setTab('employees')}>View All</button>
+                  </div>
+                  <div className="team-overview">
+                    <div className="team-stat">
+                      <Car size={18} />
+                      <div>
+                        <strong>{detailers.length}</strong>
+                        <span>Detailers</span>
+                      </div>
+                    </div>
+                    <div className="team-stat">
+                      <Users size={18} />
+                      <div>
+                        <strong>{d2dAgents.length}</strong>
+                        <span>D2D Agents</span>
+                      </div>
+                    </div>
+                    <div className="team-stat">
+                      <UserCheck size={18} />
+                      <div>
+                        <strong>{employees.filter(e => e.role === 'manager').length}</strong>
+                        <span>Managers</span>
+                      </div>
+                    </div>
+                  </div>
+                  {employees.slice(0, 4).map(e => (
+                    <div key={e.id} className="admin-row">
+                      <div className="admin-row-main">
+                        <strong>{e.name}</strong>
+                        <StatusBadge status={e.role} />
+                      </div>
+                      <div className="admin-row-right">
+                        <span>{e.jobs_completed} jobs</span>
+                      </div>
+                    </div>
+                  ))}
+                  {employees.length === 0 && <p className="empty-text">No team members yet.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOMERS */}
+          {tab === 'customers' && (
+            <div className="tab-content">
+              <div className="tab-header">
+                <div><h2>Customers</h2><p>{customers.length} registered customers</p></div>
+              </div>
+              <div className="admin-card">
+                <div className="data-table">
+                  <div className="data-table-head">
+                    <span>Name</span><span>Email</span><span>Joined</span><span>Status</span>
+                  </div>
+                  {customers.map(c => (
+                    <div key={c.id} className="data-table-row">
+                      <div className="dt-cell dt-name">
+                        <div className="dt-avatar">{c.full_name?.[0]?.toUpperCase() ?? '?'}</div>
+                        <div>
+                          <strong>{c.full_name ?? 'Unknown'}</strong>
+                          {c.phone && <span>{c.phone}</span>}
+                        </div>
+                      </div>
+                      <span className="dt-cell">{c.email ?? '—'}</span>
+                      <span className="dt-cell">{new Date(c.created_at).toLocaleDateString()}</span>
+                      <span className="dt-cell"><StatusBadge status="active" /></span>
+                    </div>
+                  ))}
+                  {customers.length === 0 && <p className="empty-text">No customers yet.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* APPOINTMENTS */}
+          {tab === 'appointments' && (
+            <div className="tab-content">
+              <div className="tab-header">
+                <div><h2>All Appointments</h2><p>{appointments.length} total</p></div>
+              </div>
+              <div className="admin-card">
+                <div className="data-table">
+                  <div className="data-table-head">
+                    <span>Service</span><span>Price</span><span>Status</span><span>Date</span><span>Actions</span>
+                  </div>
+                  {appointments.map(a => (
+                    <div key={a.id} className="data-table-row">
+                      <div className="dt-cell dt-service">
+                        <strong>{a.service_name}</strong>
+                        {a.add_ons.length > 0 && <span>+{a.add_ons.length} add-on{a.add_ons.length > 1 ? 's' : ''}</span>}
+                      </div>
+                      <span className="dt-cell"><strong>{money(a.price)}</strong></span>
+                      <span className="dt-cell"><StatusBadge status={a.status} /></span>
+                      <span className="dt-cell">{new Date(a.created_at).toLocaleDateString()}</span>
+                      <div className="dt-cell dt-actions">
+                        {a.status !== 'completed' && a.status !== 'cancelled' && (
+                          <>
+                            <button className="btn-sm btn-outline" onClick={() => handleUpdateAptStatus(a.id, 'confirmed')}>Confirm</button>
+                            <button className="btn-sm btn-primary" onClick={() => handleUpdateAptStatus(a.id, 'completed')}>Complete</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {appointments.length === 0 && <p className="empty-text">No appointments yet.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* EMPLOYEES */}
+          {tab === 'employees' && (
+            <div className="tab-content">
+              <div className="tab-header">
+                <div><h2>Team Management</h2><p>{employees.length} team members</p></div>
+                <button className="btn-primary" onClick={() => setShowEmpForm(true)}>
+                  <Plus size={16} /> Add Member
+                </button>
+              </div>
+
+              <div className="emp-sections">
+                {[
+                  { title: 'Detailers', roleKey: 'detailer' },
+                  { title: 'D2D Agents', roleKey: 'd2d_agent' },
+                  { title: 'Managers', roleKey: 'manager' },
+                ].map(({ title, roleKey }) => {
+                  const group = employees.filter(e => e.role === roleKey);
+                  return (
+                    <div key={roleKey} className="admin-card emp-group">
+                      <div className="admin-card-header">
+                        <h3>{title} <span className="emp-count">{group.length}</span></h3>
+                      </div>
+                      {group.length === 0 ? (
+                        <p className="empty-text">No {title.toLowerCase()} added yet.</p>
+                      ) : (
+                        <div className="emp-grid">
+                          {group.map(e => (
+                            <div key={e.id} className="emp-card">
+                              <div className="emp-avatar">{e.name[0].toUpperCase()}</div>
+                              <div className="emp-info">
+                                <strong>{e.name}</strong>
+                                <span>{e.email ?? e.phone ?? '—'}</span>
+                              </div>
+                              <div className="emp-stats">
+                                <div><strong>{e.jobs_completed}</strong><span>Jobs</span></div>
+                                <div><strong>{e.commission_rate}%</strong><span>Comm.</span></div>
+                              </div>
+                              <StatusBadge status={e.status} />
+                              <button className="emp-delete" onClick={() => handleDeleteEmployee(e.id)}><Trash2 size={14} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* PAYMENTS */}
+          {tab === 'payments' && (
+            <div className="tab-content">
+              <div className="tab-header">
+                <div><h2>Payments & Cash Flow</h2></div>
+              </div>
+
+              <div className="admin-stats-row">
+                <StatCard label="Total Revenue" value={money(totalRevenue)} icon={DollarSign} color="stat-gold" />
+                <StatCard label="This Month" value={money(monthRevenue)} icon={TrendingUp} color="stat-green" />
+                <StatCard label="Transactions" value={String(payments.length)} icon={CreditCard} />
+                <StatCard label="Avg. Ticket" value={payments.length > 0 ? money(Math.round(totalRevenue / payments.length)) : '$0'} icon={BarChart2} />
+              </div>
+
+              <div className="admin-card">
+                <div className="admin-card-header"><h3>Transaction History</h3></div>
+                <div className="data-table">
+                  <div className="data-table-head">
+                    <span>Description</span><span>Amount</span><span>Method</span><span>Status</span><span>Date</span>
+                  </div>
+                  {payments.map(p => (
+                    <div key={p.id} className="data-table-row">
+                      <span className="dt-cell">{p.description ?? 'Service'}</span>
+                      <span className="dt-cell"><strong>{money(p.amount)}</strong></span>
+                      <span className="dt-cell">{p.payment_method}</span>
+                      <span className="dt-cell"><StatusBadge status={p.status} /></span>
+                      <span className="dt-cell">{new Date(p.created_at).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                  {payments.length === 0 && <p className="empty-text">No payments recorded yet.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VISITORS */}
+          {tab === 'visitors' && (
+            <div className="tab-content">
+              <div className="tab-header">
+                <div><h2>Site Visitors</h2><p>Last 30 days</p></div>
+              </div>
+              <div className="admin-stats-row">
+                <StatCard label="Total Visits (30d)" value={String(visits.reduce((s, v) => s + v.count, 0))} icon={Eye} />
+                <StatCard label="Pages Tracked" value={String(visits.length)} icon={Globe} />
+              </div>
+              <div className="admin-card">
+                <div className="admin-card-header"><h3>Top Pages</h3></div>
+                <div className="visitors-list">
+                  {visits.map(v => {
+                    const maxCount = visits[0]?.count ?? 1;
+                    return (
+                      <div key={v.page} className="visitor-row">
+                        <span className="visitor-page">{v.page}</span>
+                        <div className="visitor-bar-wrap">
+                          <div className="visitor-bar" style={{ width: `${(v.count / maxCount) * 100}%` }} />
+                        </div>
+                        <strong className="visitor-count">{v.count}</strong>
+                      </div>
+                    );
+                  })}
+                  {visits.length === 0 && <p className="empty-text">No visits tracked yet. Visits are logged as users browse the site.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Add Employee Modal */}
+      {showEmpForm && (
+        <div className="modal-overlay" onClick={() => setShowEmpForm(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Add Team Member</h3>
+              <button onClick={() => setShowEmpForm(false)}><X size={20} /></button>
+            </div>
+            <form className="modal-form" onSubmit={handleAddEmployee}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input required value={empForm.name} onChange={e => setEmpForm(p => ({...p, name: e.target.value}))} placeholder="Full name" />
+                </div>
+                <div className="form-group">
+                  <label>Role</label>
+                  <select value={empForm.role} onChange={e => setEmpForm(p => ({...p, role: e.target.value}))}>
+                    <option value="detailer">Detailer</option>
+                    <option value="d2d_agent">D2D Agent</option>
+                    <option value="manager">Manager</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="email" value={empForm.email} onChange={e => setEmpForm(p => ({...p, email: e.target.value}))} placeholder="team@northsplash.com" />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input type="tel" value={empForm.phone} onChange={e => setEmpForm(p => ({...p, phone: e.target.value}))} placeholder="330-000-0000" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Commission Rate (%)</label>
+                <input type="number" min="0" max="100" value={empForm.commission_rate} onChange={e => setEmpForm(p => ({...p, commission_rate: Number(e.target.value)}))} />
+              </div>
+              <button type="submit" className="btn-primary btn-full" disabled={empSubmitting}>
+                {empSubmitting ? 'Adding...' : 'Add Team Member'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
