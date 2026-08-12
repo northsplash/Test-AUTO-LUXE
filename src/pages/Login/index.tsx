@@ -21,9 +21,22 @@ export default function Login() {
     setLoading(true);
     try {
       if (mode === 'signin') {
-        await signIn(email, password);
-        navigate('/portal');
-      } else {
+  const data = await signIn(email, password);
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', data.user.id)
+    .single();
+
+  if (profileError) throw profileError;
+
+  if (profile?.role === 'admin') {
+    navigate('/admin');
+  } else {
+    navigate('/portal');
+  }
+} else {
         await signUp(email, password, name, phone);
         navigate('/portal');
       }
