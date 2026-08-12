@@ -10,29 +10,44 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        (async () => {
-          const p = await getProfile(session.user.id).catch(() => null);
-          setProfile(p);
-        })();
-      }
-      setLoading(false);
-    });
+    const loadSession = async () => {
+      setLoading(true);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        (async () => {
-          const p = await getProfile(session.user.id).catch(() => null);
-          setProfile(p);
-        })();
+        const p = await getProfile(session.user.id).catch(() => null);
+        setProfile(p);
       } else {
         setProfile(null);
       }
+
+      setLoading(false);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setLoading(true);
+
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const p = await getProfile(session.user.id).catch(() => null);
+        setProfile(p);
+      } else {
+        setProfile(null);
+      }
+
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
