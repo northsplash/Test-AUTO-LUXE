@@ -9,8 +9,14 @@ export function useAuth() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadProfile = async (userId: string) => {
+    const p = await getProfile(userId).catch(() => null);
+    setProfile(p);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const loadSession = async () => {
+    const initialize = async () => {
       setLoading(true);
 
       const {
@@ -21,33 +27,31 @@ export function useAuth() {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const p = await getProfile(session.user.id).catch(() => null);
-        setProfile(p);
+        await loadProfile(session.user.id);
       } else {
         setProfile(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    loadSession();
+    initialize();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setLoading(true);
-
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const p = await getProfile(session.user.id).catch(() => null);
-        setProfile(p);
+        setLoading(true);
+
+        setTimeout(() => {
+          loadProfile(session.user.id);
+        }, 0);
       } else {
         setProfile(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
