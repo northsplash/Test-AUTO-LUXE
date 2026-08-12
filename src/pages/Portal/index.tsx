@@ -624,7 +624,7 @@ export default function Portal() {
                   <strong>{money(PACKAGES[bookPkg].price + VEHICLE_SIZES[bookVehicle].extra + bookAddOns.reduce((s, i) => s + ADD_ONS[i][1], 0))}</strong>
                 </div>
                 <button type="submit" className="btn-primary btn-full" disabled={bookSubmitting}>
-                  {bookSubmitting ? 'Submitting...' : 'Confirm Booking'}
+                  {bookSubmitting ? 'Opening Square...' : 'Continue to Payment'}
                 </button>
               </form>
             )}
