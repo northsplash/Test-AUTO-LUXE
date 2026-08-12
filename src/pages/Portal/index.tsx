@@ -156,10 +156,19 @@ export default function Portal() {
     const { data: checkout, error: checkoutError } =
       await supabase.functions.invoke('create-square-checkout', {
         body: {
-          serviceName: PACKAGES[bookPkg].name,
-          price,
-          appointmentId: appointment.id,
-        },
+  serviceName: PACKAGES[bookPkg].name,
+  servicePrice: PACKAGES[bookPkg].price,
+
+  vehicleName: VEHICLE_SIZES[bookVehicle].name,
+  vehicleExtra: VEHICLE_SIZES[bookVehicle].extra,
+
+  addOns: bookAddOns.map(i => ({
+    name: ADD_ONS[i][0],
+    price: ADD_ONS[i][1],
+  })),
+
+  appointmentId: appointment.id,
+},
       });
 
     if (checkoutError) throw checkoutError;
