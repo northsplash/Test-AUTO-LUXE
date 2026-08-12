@@ -118,6 +118,10 @@ export default function Login() {
               </button>
             </div>
           </div>
+         
+          {mode === 'signin' && (
+  <Link to="/forgot-password">Forgot password?</Link>
+)}
 
           {error && <div className="auth-error">{error}</div>}
 
