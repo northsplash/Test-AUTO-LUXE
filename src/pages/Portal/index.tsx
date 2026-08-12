@@ -153,31 +153,20 @@ export default function Portal() {
 
     if (paymentError) throw paymentError;
 
-    const { data: checkout, error: checkoutError } =
-      await supabase.functions.invoke('create-square-checkout', {
-        body: {
-  serviceName: PACKAGES[bookPkg].name,
-  servicePrice: PACKAGES[bookPkg].price,
-
-  vehicleName: VEHICLE_SIZES[bookVehicle].name,
-  vehicleExtra: VEHICLE_SIZES[bookVehicle].extra,
-
-  addOns: bookAddOns.map(i => ({
-    name: ADD_ONS[i][0],
-    price: ADD_ONS[i][1],
-  })),
-
-  appointmentId: appointment.id,
-},
-      });
-
-    if (checkoutError) throw checkoutError;
-
-    if (!checkout?.checkoutUrl) {
-      throw new Error('Square checkout link was not created.');
-    }
-
-    window.location.href = checkout.checkoutUrl;
+    navigate('/checkout', {
+  state: {
+    appointmentId: appointment.id,
+    amount: price,
+    serviceName: PACKAGES[bookPkg].name,
+    servicePrice: PACKAGES[bookPkg].price,
+    vehicleName: VEHICLE_SIZES[bookVehicle].name,
+    vehicleExtra: VEHICLE_SIZES[bookVehicle].extra,
+    addOns: bookAddOns.map(i => ({
+      name: ADD_ONS[i][0],
+      price: ADD_ONS[i][1],
+    })),
+  },
+});
   } catch (error) {
     console.error('Booking/payment error:', error);
 
