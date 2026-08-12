@@ -112,36 +112,75 @@ export default function Portal() {
   };
 
   const handleBookSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setBookSubmitting(true);
-    const price = PACKAGES[bookPkg].price + VEHICLE_SIZES[bookVehicle].extra;
-    const { data } = await supabase.from('appointments').insert({
-      user_id: user.id,
-      service_name: PACKAGES[bookPkg].name,
-      package_name: PACKAGES[bookPkg].name,
-      add_ons: bookAddOns.map(i => ADD_ONS[i][0]),
-      vehicle_info: profile?.vehicle_info ?? '',
-      price,
-      notes: bookNotes,
-      status: 'pending',
-    }).select().single();
+  e.preventDefault();
 
-    if (data) {
-      await supabase.from('payments').insert({
+  if (!user) return;
+
+  setBookSubmitting(true);
+
+  try {
+    const price =
+      PACKAGES[bookPkg].price +
+      VEHICLE_SIZES[bookVehicle].extra +
+      bookAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
+
+    const { data: appointment, error: appointmentError } = await supabase
+      .from('appointments')
+      .insert({
         user_id: user.id,
-        appointment_id: data.id,
+        service_name: PACKAGES[bookPkg].name,
+        package_name: PACKAGES[bookPkg].name,
+        add_ons: bookAddOns.map(i => ADD_ONS[i][0]),
+        vehicle_info: profile?.vehicle_info ?? '',
+        price,
+        notes: bookNotes,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (appointmentError) throw appointmentError;
+
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        user_id: user.id,
+        appointment_id: appointment.id,
         amount: price,
         status: 'pending',
         description: PACKAGES[bookPkg].name,
       });
-      setAppointments(prev => [data, ...prev]);
-    }
-    setBookSubmitting(false);
-    setBookDone(true);
-    setTimeout(() => { setShowBook(false); setBookDone(false); }, 2000);
-  };
 
+    if (paymentError) throw paymentError;
+
+    const { data: checkout, error: checkoutError } =
+      await supabase.functions.invoke('create-square-checkout', {
+        body: {
+          serviceName: PACKAGES[bookPkg].name,
+          price,
+          appointmentId: appointment.id,
+        },
+      });
+
+    if (checkoutError) throw checkoutError;
+
+    if (!checkout?.checkoutUrl) {
+      throw new Error('Square checkout link was not created.');
+    }
+
+    window.location.href = checkout.checkoutUrl;
+  } catch (error) {
+    console.error('Booking/payment error:', error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : 'Unable to start payment. Please try again.'
+    );
+
+    setBookSubmitting(false);
+  }
+};
   const handleSubscribe = async (plan: typeof MEMBERSHIPS[0]) => {
     if (!user) return;
     const nextDate = new Date();
