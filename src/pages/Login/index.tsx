@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { signIn, signUp } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export default function Login() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
