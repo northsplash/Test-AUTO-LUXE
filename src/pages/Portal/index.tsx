@@ -199,6 +199,11 @@ const [timesLoading, setTimesLoading] = useState(false);
 
   if (!user) return;
 
+    if (!bookDate || !bookTime) {
+  alert('Please choose an appointment date and time.');
+  return;
+}
+
   setBookSubmitting(true);
 
   try {
