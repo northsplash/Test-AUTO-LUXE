@@ -11,7 +11,14 @@ import { supabase } from '@/lib/supabase';
 import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
 import { money } from '@/lib/data';
 
-type AdminTab = 'dashboard' | 'customers' | 'appointments' | 'employees' | 'payments' | 'visitors';
+type AdminTab =
+  | 'dashboard'
+  | 'customers'
+  | 'appointments'
+  | 'availability'
+  | 'employees'
+  | 'payments'
+  | 'visitors';
 
 function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
   return (
@@ -52,6 +59,14 @@ export default function Admin() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [visits, setVisits] = useState<{ page: string; count: number }[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [availability, setAvailability] = useState<any[]>([]);
+const [availabilityForm, setAvailabilityForm] = useState({
+  date: '',
+  start_time: '09:00',
+  end_time: '17:00',
+  slot_minutes: 60,
+  is_available: true,
+});
 
   // Employee form
   const [showEmpForm, setShowEmpForm] = useState(false);
@@ -67,12 +82,35 @@ export default function Admin() {
   useEffect(() => {
     if (!user || profile?.role !== 'admin') return;
     (async () => {
-      const [custs, apts, pays, emps] = await Promise.all([
-        supabase.from('profiles').select('*').eq('role', 'customer').order('created_at', { ascending: false }),
-        supabase.from('appointments').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(200),
-        supabase.from('employees').select('*').order('created_at', { ascending: false }),
-      ]);
+      const [custs, apts, pays, emps, avail] = await Promise.all([
+  supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'customer')
+    .order('created_at', { ascending: false }),
+
+  supabase
+    .from('appointments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100),
+
+  supabase
+    .from('payments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200),
+
+  supabase
+    .from('employees')
+    .select('*')
+    .order('created_at', { ascending: false }),
+
+  supabase
+    .from('availability')
+    .select('*')
+    .order('date', { ascending: true }),
+]);
 
       // Aggregate site visits by page
       const { data: visitData } = await supabase
@@ -88,6 +126,7 @@ export default function Admin() {
       setAppointments(apts.data ?? []);
       setPayments(pays.data ?? []);
       setEmployees(emps.data ?? []);
+      setAvailability(avail.data ?? []);
       setVisits(visitAgg);
       setDataLoading(false);
     })();
