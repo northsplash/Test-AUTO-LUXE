@@ -694,6 +694,53 @@ const [timesLoading, setTimesLoading] = useState(false);
                     ))}
                   </select>
                 </div>
+<div className="form-group">
+  <label>Appointment Date</label>
+
+  <input
+    type="date"
+    required
+    min={new Date().toISOString().split('T')[0]}
+    value={bookDate}
+    onChange={e => loadAvailableTimes(e.target.value)}
+  />
+</div>
+
+{bookDate && (
+  <div className="form-group">
+    <label>Available Times</label>
+
+    {timesLoading ? (
+      <p>Checking available times...</p>
+    ) : availableTimes.length === 0 ? (
+      <p style={{ color: '#999' }}>
+        No appointments available on this date.
+      </p>
+    ) : (
+      <div className="mini-addons">
+        {availableTimes.map(time => (
+          <button
+            key={time}
+            type="button"
+            className={`mini-addon ${
+              bookTime === time ? 'mini-active' : ''
+            }`}
+            onClick={() => setBookTime(time)}
+          >
+            {new Date(`2000-01-01T${time}:00`).toLocaleTimeString(
+              'en-US',
+              {
+                hour: 'numeric',
+                minute: '2-digit',
+              }
+            )}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+                
                 <div className="form-group">
                   <label>Add-Ons</label>
                   <div className="mini-addons">
