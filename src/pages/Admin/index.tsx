@@ -162,6 +162,71 @@ const [availabilityForm, setAvailabilityForm] = useState({
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
   };
 
+const handleSaveAvailability = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!availabilityForm.date) return;
+
+  const { data, error } = await supabase
+    .from('availability')
+    .upsert(
+      {
+        date: availabilityForm.date,
+        start_time: availabilityForm.start_time,
+        end_time: availabilityForm.end_time,
+        slot_minutes: availabilityForm.slot_minutes,
+        is_available: availabilityForm.is_available,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'date',
+      }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setAvailability(prev => {
+    const exists = prev.some(a => a.date === data.date);
+
+    if (exists) {
+      return prev
+        .map(a => a.date === data.date ? data : a)
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    return [...prev, data].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+  });
+
+  setAvailabilityForm({
+    date: '',
+    start_time: '09:00',
+    end_time: '17:00',
+    slot_minutes: 60,
+    is_available: true,
+  });
+};
+
+const handleDeleteAvailability = async (id: string) => {
+  const { error } = await supabase
+    .from('availability')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setAvailability(prev => prev.filter(a => a.id !== id));
+};
+  
   const handleSignOut = async () => {
     await signOut().catch(() => {});
     navigate('/');
