@@ -81,6 +81,10 @@ export default function Portal() {
   const [bookAddOns, setBookAddOns] = useState<number[]>([]);
   const [bookNotes, setBookNotes] = useState('');
   const [bookSubmitting, setBookSubmitting] = useState(false);
+  const [bookDate, setBookDate] = useState('');
+const [bookTime, setBookTime] = useState('');
+const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+const [timesLoading, setTimesLoading] = useState(false);
   const [bookDone, setBookDone] = useState(false);
 
   useEffect(() => {
