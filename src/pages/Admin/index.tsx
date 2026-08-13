@@ -179,6 +179,7 @@ const [availabilityForm, setAvailabilityForm] = useState({
     { id: 'dashboard' as AdminTab, label: 'Dashboard', Icon: LayoutDashboard },
     { id: 'customers' as AdminTab, label: 'Customers', Icon: Users },
     { id: 'appointments' as AdminTab, label: 'Appointments', Icon: Calendar },
+    { id: 'availability' as AdminTab, label: 'Availability', Icon: Calendar },
     { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
