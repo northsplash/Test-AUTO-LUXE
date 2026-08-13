@@ -480,6 +480,225 @@ const handleDeleteAvailability = async (id: string) => {
             </div>
           )}
 
+{/* AVAILABILITY */}
+{tab === 'availability' && (
+  <div className="tab-content">
+    <div className="tab-header">
+      <div>
+        <h2>Booking Availability</h2>
+        <p>Choose when customers are allowed to book appointments.</p>
+      </div>
+    </div>
+
+    <form
+      onSubmit={handleSaveAvailability}
+      style={{
+        background: '#111',
+        border: '1px solid #2a2a2a',
+        borderRadius: '14px',
+        padding: '24px',
+        marginBottom: '30px',
+      }}
+    >
+      <h3 style={{ marginTop: 0 }}>Set Availability</h3>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '16px',
+        }}
+      >
+        <div className="form-group">
+          <label>Date</label>
+          <input
+            type="date"
+            required
+            value={availabilityForm.date}
+            onChange={e =>
+              setAvailabilityForm(prev => ({
+                ...prev,
+                date: e.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Start Time</label>
+          <input
+            type="time"
+            value={availabilityForm.start_time}
+            onChange={e =>
+              setAvailabilityForm(prev => ({
+                ...prev,
+                start_time: e.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="form-group">
+          <label>End Time</label>
+          <input
+            type="time"
+            value={availabilityForm.end_time}
+            onChange={e =>
+              setAvailabilityForm(prev => ({
+                ...prev,
+                end_time: e.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Appointment Length</label>
+
+          <select
+            value={availabilityForm.slot_minutes}
+            onChange={e =>
+              setAvailabilityForm(prev => ({
+                ...prev,
+                slot_minutes: Number(e.target.value),
+              }))
+            }
+          >
+            <option value={30}>30 minutes</option>
+            <option value={60}>1 hour</option>
+            <option value={90}>1.5 hours</option>
+            <option value={120}>2 hours</option>
+            <option value={180}>3 hours</option>
+            <option value={240}>4 hours</option>
+          </select>
+        </div>
+      </div>
+
+      <div
+        style={{
+          margin: '20px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={availabilityForm.is_available}
+          onChange={e =>
+            setAvailabilityForm(prev => ({
+              ...prev,
+              is_available: e.target.checked,
+            }))
+          }
+        />
+
+        <span>
+          {availabilityForm.is_available
+            ? 'Customers can book this day'
+            : 'Block this entire day'}
+        </span>
+      </div>
+
+      <button type="submit" className="btn-primary">
+        Save Availability
+      </button>
+    </form>
+
+    <div
+      style={{
+        background: '#111',
+        border: '1px solid #2a2a2a',
+        borderRadius: '14px',
+        padding: '24px',
+      }}
+    >
+      <h3>Upcoming Availability</h3>
+
+      {availability.length === 0 ? (
+        <p style={{ color: '#999' }}>
+          No availability has been added yet.
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {availability.map(item => (
+            <div
+              key={item.id}
+              style={{
+                border: '1px solid #292929',
+                borderRadius: '10px',
+                padding: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '15px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <strong>
+                  {new Date(
+                    `${item.date}T12:00:00`
+                  ).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </strong>
+
+                <div
+                  style={{
+                    color: '#999',
+                    marginTop: '5px',
+                  }}
+                >
+                  {item.is_available
+                    ? `${item.start_time.slice(0, 5)} – ${item.end_time.slice(0, 5)} • ${item.slot_minutes} minute slots`
+                    : 'Closed / unavailable'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() =>
+                    setAvailabilityForm({
+                      date: item.date,
+                      start_time: item.start_time.slice(0, 5),
+                      end_time: item.end_time.slice(0, 5),
+                      slot_minutes: item.slot_minutes,
+                      is_available: item.is_available,
+                    })
+                  }
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() =>
+                    handleDeleteAvailability(item.id)
+                  }
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+          
           {/* EMPLOYEES */}
           {tab === 'employees' && (
             <div className="tab-content">
