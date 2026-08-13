@@ -115,6 +115,85 @@ const [timesLoading, setTimesLoading] = useState(false);
     navigate('/');
   };
 
+  const loadAvailableTimes = async (date: string) => {
+  setBookDate(date);
+  setBookTime('');
+  setAvailableTimes([]);
+
+  if (!date) return;
+
+  setTimesLoading(true);
+
+  try {
+    const { data: dayAvailability, error: availabilityError } =
+      await supabase
+        .from('availability')
+        .select('*')
+        .eq('date', date)
+        .maybeSingle();
+
+    if (availabilityError) throw availabilityError;
+
+    if (!dayAvailability || !dayAvailability.is_available) {
+      setAvailableTimes([]);
+      return;
+    }
+
+    const { data: booked, error: bookedError } = await supabase.rpc(
+      'get_booked_times',
+      {
+        for_date: date,
+      }
+    );
+
+    if (bookedError) throw bookedError;
+
+    const bookedTimes = new Set(
+      (booked ?? []).map((item: any) =>
+        new Date(item.scheduled_at).toLocaleTimeString('en-US', {
+          timeZone: 'America/New_York',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      )
+    );
+
+    const slots: string[] = [];
+
+    const [startHour, startMinute] =
+      dayAvailability.start_time.split(':').map(Number);
+
+    const [endHour, endMinute] =
+      dayAvailability.end_time.split(':').map(Number);
+
+    let current = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
+
+    while (current + dayAvailability.slot_minutes <= end) {
+      const hours = Math.floor(current / 60);
+      const minutes = current % 60;
+
+      const value =
+        `${String(hours).padStart(2, '0')}:` +
+        `${String(minutes).padStart(2, '0')}`;
+
+      if (!bookedTimes.has(value)) {
+        slots.push(value);
+      }
+
+      current += dayAvailability.slot_minutes;
+    }
+
+    setAvailableTimes(slots);
+  } catch (error) {
+    console.error('Availability error:', error);
+    setAvailableTimes([]);
+  } finally {
+    setTimesLoading(false);
+  }
+};
+  
   const handleBookSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -133,6 +212,9 @@ const [timesLoading, setTimesLoading] = useState(false);
       .insert({
         user_id: user.id,
         service_name: PACKAGES[bookPkg].name,
+        scheduled_at: new Date(
+  `${bookDate}T${bookTime}:00`
+).toISOString(),
         package_name: PACKAGES[bookPkg].name,
         add_ons: bookAddOns.map(i => ADD_ONS[i][0]),
         vehicle_info: profile?.vehicle_info ?? '',
