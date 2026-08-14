@@ -544,6 +544,77 @@ const handleDeleteAvailability = async (id: string) => {
             </div>
           )}
 
+{/* ARCHIVED DETAILS */}
+{tab === 'archived' && (
+  <div className="tab-content">
+    <div className="tab-header">
+      <div>
+        <h2>Archived Details</h2>
+        <p>Past or cleared appointments are stored here.</p>
+      </div>
+    </div>
+
+    <div className="admin-card">
+      {appointments.filter(a => a.archived).length === 0 ? (
+        <p className="empty-text">
+          No archived appointments yet.
+        </p>
+      ) : (
+        <div className="data-table">
+          {appointments
+            .filter(a => a.archived)
+            .map(a => (
+              <div key={a.id} className="data-table-row">
+                <div className="dt-cell">
+                  <strong>{a.service_name}</strong>
+
+                  {a.scheduled_at && (
+                    <span>
+                      {new Date(a.scheduled_at).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+
+                <span className="dt-cell">
+                  {money(a.price)}
+                </span>
+
+                <span className="dt-cell">
+                  <StatusBadge status={a.status} />
+                </span>
+
+                <button
+                  className="btn-sm btn-outline"
+                  onClick={async () => {
+                    const { error } = await supabase
+                      .from('appointments')
+                      .update({ archived: false })
+                      .eq('id', a.id);
+
+                    if (error) {
+                      alert(error.message);
+                      return;
+                    }
+
+                    setAppointments(prev =>
+                      prev.map(item =>
+                        item.id === a.id
+                          ? { ...item, archived: false }
+                          : item
+                      )
+                    );
+                  }}
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+          
 {/* SCHEDULE */}
 {tab === 'schedule' && (
   <div className="tab-content">
