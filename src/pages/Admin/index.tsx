@@ -507,6 +507,99 @@ const handleDeleteAvailability = async (id: string) => {
             </div>
           )}
 
+{/* SCHEDULE */}
+{tab === 'schedule' && (
+  <div className="tab-content">
+    <div className="tab-header">
+      <div>
+        <h2>Booking Schedule</h2>
+        <p>See who is booked, when they are coming, and what service they booked.</p>
+      </div>
+    </div>
+
+    <div className="admin-card">
+      <div className="data-table">
+        <div className="data-table-head">
+          <span>Customer</span>
+          <span>Service</span>
+          <span>Date & Time</span>
+          <span>Price</span>
+          <span>Status</span>
+        </div>
+
+        {appointments
+          .filter(a => a.scheduled_at && a.status !== 'cancelled')
+          .sort(
+            (a, b) =>
+              new Date(a.scheduled_at!).getTime() -
+              new Date(b.scheduled_at!).getTime()
+          )
+          .map(a => {
+            const customer = customers.find(c => c.id === a.user_id);
+
+            return (
+              <div key={a.id} className="data-table-row">
+                <div className="dt-cell">
+                  <strong>{customer?.full_name ?? 'Customer'}</strong>
+                  <span>{customer?.email ?? ''}</span>
+                </div>
+
+                <div className="dt-cell">
+                  <strong>{a.service_name}</strong>
+
+                  {a.add_ons?.length > 0 && (
+                    <span>
+                      + {a.add_ons.join(', ')}
+                    </span>
+                  )}
+                </div>
+
+                <div className="dt-cell">
+                  <strong>
+                    {new Date(a.scheduled_at!).toLocaleDateString(
+                      'en-US',
+                      {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      }
+                    )}
+                  </strong>
+
+                  <span>
+                    {new Date(a.scheduled_at!).toLocaleTimeString(
+                      'en-US',
+                      {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      }
+                    )}
+                  </span>
+                </div>
+
+                <span className="dt-cell">
+                  <strong>{money(a.price)}</strong>
+                </span>
+
+                <span className="dt-cell">
+                  <StatusBadge status={a.status} />
+                </span>
+              </div>
+            );
+          })}
+
+        {appointments.filter(
+          a => a.scheduled_at && a.status !== 'cancelled'
+        ).length === 0 && (
+          <p className="empty-text">
+            No scheduled appointments yet.
+          </p>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+          
 {/* AVAILABILITY */}
 {tab === 'availability' && (
   <div className="tab-content">
