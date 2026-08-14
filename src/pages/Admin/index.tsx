@@ -344,8 +344,8 @@ const handleDeleteAvailability = async (id: string) => {
     {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval','training']},
     {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
     {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments','marketing','retention']},
-    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','communications','approvals']},
-    {id:'system',label:'System & Security',items:['permissions','automations','locations','continuity','audit','visitors']},
+    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','approvals']},
+    {id:'system',label:'System & Security',items:['permissions','communications','automations','locations','continuity','audit','visitors']},
   ];
 
   // Monthly cashflow chart data (last 6 months)
