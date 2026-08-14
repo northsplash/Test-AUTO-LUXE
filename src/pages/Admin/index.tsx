@@ -512,6 +512,13 @@ const handleDeleteAvailability = async (id: string) => {
 >
   Decline
 </button>
+
+                            <button
+  className="btn-sm btn-outline"
+  onClick={() => handleArchiveAppointment(a.id)}
+>
+  Archive
+</button>
                             
                             <button className="btn-sm btn-primary" onClick={() => handleUpdateAptStatus(a.id, 'completed')}>Complete</button>
                           </>
