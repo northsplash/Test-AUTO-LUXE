@@ -111,136 +111,166 @@ export default function Checkout() {
   }, []);
 
   const handlePayment = async () => {
-    if (!checkout) {
-      setError('Checkout information is missing.');
-      return;
+  if (!checkout) {
+    setError('Checkout information is missing.');
+    return;
+  }
+
+  if (!cardRef.current) {
+    setError('Payment form is not ready.');
+    return;
+  }
+
+  setPaying(true);
+  setError('');
+
+  try {
+    // Securely tokenize the card with Square
+    const tokenResult = await cardRef.current.tokenize();
+
+    if (tokenResult.status !== 'OK' || !tokenResult.token) {
+      throw new Error(
+        tokenResult.errors?.[0]?.message ||
+          'Unable to verify your card.'
+      );
     }
 
-    if (!cardRef.current) {
-      setError('Payment form is not ready.');
-      return;
-    }
-
-    setPaying(true);
-    setError('');
-
-    try {
-      // Get secure one-time card token from Square
-      const tokenResult = await cardRef.current.tokenize();
-
-      if (tokenResult.status !== 'OK' || !tokenResult.token) {
-        throw new Error(
-          tokenResult.errors?.[0]?.message ||
-            'Unable to verify your card.'
-        );
+    // =========================================
+    // MEMBERSHIP
+    // =========================================
+    if (checkout.paymentType === 'membership') {
+      if (!checkout.subscriptionId) {
+        throw new Error('Membership information is missing.');
       }
 
-      // Charge card through secure Supabase Edge Function
-      const referenceId =
-        checkout.paymentType === 'membership'
-          ? checkout.subscriptionId
-          : checkout.appointmentId;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const { data, error: paymentError } =
-        await supabase.functions.invoke('process-square-payment', {
+      if (!user) {
+        throw new Error('User session was not found.');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const { data, error: membershipError } =
+        await supabase.functions.invoke('setup-square-membership', {
           body: {
             sourceId: tokenResult.token,
-            amount: checkout.amount,
-            appointmentId: referenceId,
+            planName: checkout.serviceName.replace(' Membership', ''),
+            email: user.email,
+            fullName: profile?.full_name ?? 'North Splash Customer',
           },
         });
 
-      if (paymentError) {
-        throw paymentError;
+      if (membershipError) {
+        throw membershipError;
       }
 
       if (!data?.success) {
         throw new Error(
-          data?.error || 'Payment could not be completed.'
+          data?.error || 'Unable to activate membership.'
         );
       }
 
-      // MEMBERSHIP PAYMENT
-      if (checkout.paymentType === 'membership') {
-        if (!checkout.subscriptionId) {
-          throw new Error('Membership information is missing.');
-        }
+      const { error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'active',
 
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          square_customer_id: data.squareCustomerId,
+          square_card_id: data.squareCardId,
+          square_subscription_id: data.squareSubscriptionId,
+          square_plan_variation_id: data.planVariationId,
+        })
+        .eq('id', checkout.subscriptionId);
 
-        if (!user) {
-          throw new Error('User session was not found.');
-        }
-
-        const { error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .update({
-            status: 'active',
-          })
-          .eq('id', checkout.subscriptionId);
-
-        if (subscriptionError) throw subscriptionError;
-
-        const { error: membershipPaymentError } = await supabase
-          .from('payments')
-          .insert({
-            user_id: user.id,
-            subscription_id: checkout.subscriptionId,
-            amount: checkout.amount,
-            status: 'completed',
-            description: checkout.serviceName,
-          });
-
-        if (membershipPaymentError) {
-          throw membershipPaymentError;
-        }
-      }
-
-      // APPOINTMENT PAYMENT
-      else {
-        if (!checkout.appointmentId) {
-          throw new Error('Appointment information is missing.');
-        }
-
-        const { error: paymentRecordError } = await supabase
-          .from('payments')
-          .update({
-            status: 'completed',
-          })
-          .eq('appointment_id', checkout.appointmentId);
-
-        if (paymentRecordError) throw paymentRecordError;
-
-        const { error: appointmentError } = await supabase
-          .from('appointments')
-          .update({
-            status: 'confirmed',
-          })
-          .eq('id', checkout.appointmentId);
-
-        if (appointmentError) throw appointmentError;
+      if (subscriptionError) {
+        throw subscriptionError;
       }
 
       navigate('/portal', {
         replace: true,
         state: {
           paymentSuccess: true,
+          membershipSuccess: true,
         },
       });
-    } catch (err) {
-      console.error('Payment error:', err);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Payment failed. Please try again.'
-      );
-
-      setPaying(false);
+      return;
     }
-  };
+
+    // =========================================
+    // NORMAL APPOINTMENT PAYMENT
+    // =========================================
+
+    if (!checkout.appointmentId) {
+      throw new Error('Appointment information is missing.');
+    }
+
+    const { data, error: paymentError } =
+      await supabase.functions.invoke('process-square-payment', {
+        body: {
+          sourceId: tokenResult.token,
+          amount: checkout.amount,
+          appointmentId: checkout.appointmentId,
+        },
+      });
+
+    if (paymentError) {
+      throw paymentError;
+    }
+
+    if (!data?.success) {
+      throw new Error(
+        data?.error || 'Payment could not be completed.'
+      );
+    }
+
+    const { error: paymentRecordError } = await supabase
+      .from('payments')
+      .update({
+        status: 'completed',
+      })
+      .eq('appointment_id', checkout.appointmentId);
+
+    if (paymentRecordError) {
+      throw paymentRecordError;
+    }
+
+    const { error: appointmentError } = await supabase
+      .from('appointments')
+      .update({
+        status: 'confirmed',
+      })
+      .eq('id', checkout.appointmentId);
+
+    if (appointmentError) {
+      throw appointmentError;
+    }
+
+    navigate('/portal', {
+      replace: true,
+      state: {
+        paymentSuccess: true,
+      },
+    });
+  } catch (err) {
+    console.error('Payment error:', err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : 'Payment failed. Please try again.'
+    );
+
+    setPaying(false);
+  }
+};
 
   if (!checkout) {
     return (
