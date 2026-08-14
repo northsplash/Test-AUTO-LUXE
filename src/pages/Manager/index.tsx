@@ -9,7 +9,7 @@ import { can } from '@/lib/permissions';
 import { money } from '@/lib/data';
 
 type Tab='overview'|'jobs'|'schedule'|'timecards'|'recruiting'|'leads'|'tasks'|'inventory'|'finance';
-const card:React.CSSProperties={background:'#111',border:'1px solid #292929',borderRadius:14,padding:20};
+const card:React.CSSProperties={background:'#111',border:'1px solid #292929',borderRadius:14,padding:20,color:'#fff'};
 const dt=(v?:string|null)=>v?new Date(v).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'—';
 export default function ManagerPortal(){const {user,profile,loading}=useAuth();const navigate=useNavigate();const [tab,setTab]=useState<Tab>('overview');const [sidebar,setSidebar]=useState(false);const [appointments,setAppointments]=useState<Appointment[]>([]);const [employees,setEmployees]=useState<Employee[]>([]);const [shifts,setShifts]=useState<EmployeeShift[]>([]);const [times,setTimes]=useState<TimeEntry[]>([]);const [candidates,setCandidates]=useState<RecruitingCandidate[]>([]);const [leads,setLeads]=useState<Lead[]>([]);const [tasks,setTasks]=useState<BusinessTask[]>([]);const [inventory,setInventory]=useState<any[]>([]);const [payments,setPayments]=useState<any[]>([]);const [expenses,setExpenses]=useState<any[]>([]);const [dataLoading,setDataLoading]=useState(true);
 useEffect(()=>{if(!loading&&(!user||!['manager','recruiter','finance','owner'].includes(profile?.portal_role||'')))navigate('/portal')},[user,profile,loading,navigate]);
