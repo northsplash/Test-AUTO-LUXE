@@ -46,7 +46,7 @@ const LEAD_STATUSES = [
 const roleLabel = (r?: string | null) => ({ owner: 'Owner / Admin', manager: 'Manager', employee: 'Employee', d2d: 'D2D Sales', recruiter: 'Recruiter', finance: 'Finance', customer: 'Customer' }[r || 'customer'] || r || 'Customer');
 const dt = (v?: string | null) => v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 const day = (v?: string | null) => v ? new Date(`${v}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-const card: React.CSSProperties = { background: '#111', border: '1px solid #292929', borderRadius: 14, padding: 20, color: '#fff' };
+const card: React.CSSProperties = { background: '#111', color: '#fff', border: '1px solid #292929', borderRadius: 14, padding: 20 };
 const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 };
 
 async function audit(action: string, entityType: string, entityId?: string, details: Record<string, unknown> = {}) {
