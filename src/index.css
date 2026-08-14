@@ -1365,3 +1365,173 @@ h4 { font-size: 16px; }
   .ops-actions { justify-content: flex-start; }
   .ops-five { grid-template-columns: 1fr !important; }
 }
+
+/* ================= D2D MOBILE / FIELD SALES ================= */
+.portal-topbar > h1 {
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -.5px;
+  margin: 0;
+}
+
+.d2d-map-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, .65fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.d2d-map-pane { min-width: 0; }
+.d2d-map-canvas {
+  width: 100%;
+  height: 520px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #292929;
+  background: #e8e8e8;
+}
+.d2d-location-btn {
+  width: 100%;
+  margin-top: 10px;
+  justify-content: center;
+  min-height: 46px;
+}
+.d2d-pin-status {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+
+.d2d-lead-form {
+  background: #111;
+  color: #fff;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.d2d-form-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.d2d-form-heading h3 { color: #fff; font-size: 21px; margin: 2px 0 0; }
+.d2d-eyebrow {
+  display: block;
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.7px;
+}
+.d2d-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.d2d-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.d2d-form-grid label > span {
+  color: #aaa;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+.d2d-form-grid input,
+.d2d-form-grid select,
+.d2d-form-grid textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1px solid #343434;
+  border-radius: 7px;
+  background: #f8f8f6;
+  color: #111;
+  font-size: 14px;
+  outline: none;
+}
+.d2d-form-grid textarea { min-height: 94px; resize: vertical; }
+.d2d-form-grid input:focus,
+.d2d-form-grid select:focus,
+.d2d-form-grid textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,169,110,.12); }
+.d2d-span-2 { grid-column: span 2; }
+.d2d-save-btn { min-height: 50px; justify-content: center; }
+.d2d-mobile-intro { display: none; }
+
+/* Dark operational cards must never inherit black text. */
+.portal-main [style*="background: rgb(17, 17, 17)"],
+.portal-main [style*="background:#111"],
+.portal-main [style*="background: #111"] { color: #fff; }
+
+@media (max-width: 900px) {
+  .d2d-map-grid { grid-template-columns: 1fr; }
+  .d2d-map-canvas { height: min(58vh, 480px); min-height: 330px; }
+  .d2d-lead-form { width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .portal-topbar {
+    min-height: 62px;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .portal-topbar > h1 {
+    font-size: 21px !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.7px !important;
+  }
+  .portal-content { padding: 14px; }
+  .d2d-map-tab { gap: 12px; }
+  .d2d-mobile-intro {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 2px 2px 4px;
+  }
+  .d2d-mobile-intro strong { font-size: 17px; }
+  .d2d-mobile-intro span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .d2d-map-grid { gap: 14px; }
+  .d2d-map-canvas {
+    height: 46vh;
+    min-height: 300px;
+    max-height: 420px;
+    border-radius: 12px;
+  }
+  .d2d-lead-form {
+    border-radius: 12px;
+    padding: 16px;
+    gap: 12px;
+  }
+  .d2d-form-grid { grid-template-columns: 1fr; gap: 10px; }
+  .d2d-span-2 { grid-column: span 1; }
+  .d2d-form-grid input,
+  .d2d-form-grid select,
+  .d2d-form-grid textarea {
+    min-height: 48px;
+    font-size: 16px; /* prevents iPhone Safari input zoom */
+  }
+  .d2d-form-grid textarea { min-height: 105px; }
+  .d2d-location-btn,
+  .d2d-save-btn { min-height: 50px; }
+  .leaflet-control-zoom a { width: 38px !important; height: 38px !important; line-height: 38px !important; }
+}
+
+@media (max-width: 480px) {
+  .portal-content { padding: 12px; }
+  .portal-topbar > h1 { font-size: 19px !important; }
+  .d2d-map-canvas { height: 42vh; min-height: 280px; }
+  .d2d-lead-form { padding: 14px; }
+}
