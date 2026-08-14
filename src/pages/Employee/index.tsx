@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Appointment, BusinessNotification, BusinessTask, Employee, EmployeeShift, TimeEntry, TimeOffRequest } from '@/lib/supabase';
 import { money } from '@/lib/data';
 
-const card: React.CSSProperties = { background:'#111',border:'1px solid #292929',borderRadius:14,padding:20 };
+const card: React.CSSProperties = { background:'#111',border:'1px solid #292929',borderRadius:14,padding:20,color:'#fff' };
 const dt=(v?:string|null)=>v?new Date(v).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'—';
 const day=(v?:string|null)=>v?new Date(`${v}T12:00:00`).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'—';
 
