@@ -6,6 +6,9 @@ import Admin from '@/pages/Admin';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Checkout from '@/pages/Checkout';
+import ManagerPortal from '@/pages/Manager';
+import EmployeePortal from '@/pages/Employee';
+import D2DPortal from '@/pages/D2D';
 
 export default function App() {
   return (
@@ -18,6 +21,9 @@ export default function App() {
         <Route path="/portal" element={<Portal />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/manager" element={<ManagerPortal />} />
+        <Route path="/employee" element={<EmployeePortal />} />
+        <Route path="/d2d" element={<D2DPortal />} />
       </Routes>
     </BrowserRouter>
   );
