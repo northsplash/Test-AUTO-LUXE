@@ -4,7 +4,9 @@ import {
   LayoutDashboard, Users, Calendar, CreditCard, UserCheck, Car,
   TrendingUp, BarChart2, LogOut, Menu, X, Plus, Trash2,
   Eye, DollarSign, Activity, ChevronUp, Globe, Archive,
-  BriefcaseBusiness, CalendarClock, Clock3, PackageSearch, Settings2
+  BriefcaseBusiness, CalendarClock, Clock3, PackageSearch, Settings2,
+  Target, MapPinned, ListChecks, Wrench, FileText, ShieldCheck, Bell,
+  ClipboardCheck, ScrollText, UserCog, Gauge
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from '@/lib/auth';
@@ -12,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
 import { money } from '@/lib/data';
 import BusinessSuite, { BusinessSection } from './BusinessSuite';
+import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
 
 type AdminTab =
   | 'dashboard'
@@ -28,6 +31,18 @@ type AdminTab =
   | 'sales'
   | 'inventory'
   | 'pay_settings'
+  | 'job_assignments'
+  | 'leads'
+  | 'territories'
+  | 'tasks'
+  | 'equipment'
+  | 'documents'
+  | 'reports'
+  | 'permissions'
+  | 'notifications'
+  | 'time_off'
+  | 'payroll_approval'
+  | 'audit'
   | 'payments'
   | 'visitors';
 
@@ -285,10 +300,22 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
     { id: 'staff_schedule' as AdminTab, label: 'Employee Schedule', Icon: CalendarClock },
     { id: 'timeclock' as AdminTab, label: 'Time Clock', Icon: Clock3 },
+    { id: 'payroll_approval' as AdminTab, label: 'Timesheet Approval', Icon: ClipboardCheck },
+    { id: 'job_assignments' as AdminTab, label: 'Job Assignment', Icon: ListChecks },
     { id: 'sales' as AdminTab, label: 'D2D Sales', Icon: TrendingUp },
+    { id: 'leads' as AdminTab, label: 'Leads Tracker', Icon: Target },
+    { id: 'territories' as AdminTab, label: 'Territories', Icon: MapPinned },
     { id: 'finance' as AdminTab, label: 'Finance & Payroll', Icon: DollarSign },
+    { id: 'reports' as AdminTab, label: 'Reports & Analytics', Icon: Gauge },
     { id: 'inventory' as AdminTab, label: 'Inventory', Icon: PackageSearch },
+    { id: 'equipment' as AdminTab, label: 'Equipment & Assets', Icon: Wrench },
+    { id: 'tasks' as AdminTab, label: 'Tasks & Operations', Icon: ListChecks },
+    { id: 'time_off' as AdminTab, label: 'Time-Off Requests', Icon: CalendarClock },
+    { id: 'documents' as AdminTab, label: 'Document Vault', Icon: FileText },
+    { id: 'notifications' as AdminTab, label: 'Notifications', Icon: Bell },
     { id: 'pay_settings' as AdminTab, label: 'Pay Structure', Icon: Settings2 },
+    { id: 'permissions' as AdminTab, label: 'Portal Permissions', Icon: ShieldCheck },
+    { id: 'audit' as AdminTab, label: 'Audit Log', Icon: ScrollText },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
   ];
@@ -452,7 +479,7 @@ const handleDeleteAvailability = async (id: string) => {
                     <div key={e.id} className="admin-row">
                       <div className="admin-row-main">
                         <strong>{e.name}</strong>
-                        <StatusBadge status={e.role} />
+                        <StatusBadge status={e.role} /><span className="status-badge badge-gray">Level {e.employment_level ?? 1}</span>
                       </div>
                       <div className="admin-row-right">
                         <span>{e.jobs_completed} jobs</span>
@@ -946,6 +973,16 @@ const handleDeleteAvailability = async (id: string) => {
               employees={employees}
               setEmployees={setEmployees}
               completedRevenue={monthRevenue}
+            />
+          )}
+
+          {(['job_assignments','leads','territories','tasks','equipment','documents','reports','permissions','notifications','time_off','payroll_approval','audit'] as AdminTab[]).includes(tab) && (
+            <EnterpriseSuite
+              section={tab as EnterpriseSection}
+              employees={employees}
+              setEmployees={setEmployees}
+              appointments={appointments}
+              setAppointments={setAppointments}
             />
           )}
 
