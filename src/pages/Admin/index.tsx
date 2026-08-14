@@ -15,6 +15,7 @@ type AdminTab =
   | 'dashboard'
   | 'customers'
   | 'appointments'
+  | 'schedule'
   | 'availability'
   | 'employees'
   | 'payments'
@@ -248,6 +249,7 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
+    { id: 'schedule' as AdminTab, label: 'Schedule', Icon: Calendar },
   ];
 
   // Monthly cashflow chart data (last 6 months)
