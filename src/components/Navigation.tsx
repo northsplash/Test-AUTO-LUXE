@@ -110,3 +110,4 @@ export function Navigation({ onScrollTo, isHomePage }: Props) {
     </header>
   );
 }
+
