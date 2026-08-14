@@ -53,6 +53,14 @@ export type Appointment = {
   estimated_duration_minutes?: number | null;
   actual_duration_minutes?: number | null;
   internal_notes?: string | null;
+  service_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  field_status?: string;
+  cancellation_reason?: string | null;
+  qc_status?: string;
+  tip_amount?: number;
+  travel_fee?: number;
   created_at: string;
 };
 
@@ -196,8 +204,9 @@ export type CompanySetting = {
 
 
 export type LeadTerritory = {
-  id: string; name: string; assigned_employee_id: string | null; center_lat: number | null; center_lng: number | null; radius_meters: number; status: string; notes: string | null; created_at: string; updated_at: string;
+  id: string; name: string; assigned_employee_id: string | null; center_lat: number | null; center_lng: number | null; radius_meters: number; status: string; notes: string | null; polygon_geojson?: any; start_date?: string|null; end_date?: string|null; team_name?: string|null; created_at: string; updated_at: string;
 };
+export type TerritoryDoor = { id:string; territory_id:string; lead_id:string|null; address:string|null; latitude:number; longitude:number; status:string; last_visited_at:string|null; last_employee_id:string|null; notes:string|null; source:string; created_at:string; updated_at:string; };
 
 export type Lead = {
   id: string; assigned_employee_id: string | null; territory_id: string | null; customer_name: string | null; address: string | null; city: string | null; state: string | null; postal_code: string | null; phone: string | null; email: string | null; latitude: number | null; longitude: number | null; status: string; source: string; service_interest: string | null; vehicle_info: string | null; estimated_value: number; actual_sale_amount: number; follow_up_at: string | null; appointment_id: string | null; notes: string | null; last_contacted_at: string | null; created_at: string; updated_at: string;

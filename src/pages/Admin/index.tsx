@@ -78,6 +78,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<AdminTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navGroupsOpen,setNavGroupsOpen]=useState<Record<string,boolean>>({core:true,customers:true,people:false,field:false,money:false,operations:false,system:false});
 
   const [customers, setCustomers] = useState<Profile[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -320,6 +321,16 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
   ];
 
+  const navGroups = [
+    {id:'core',label:'Overview',items:['dashboard']},
+    {id:'customers',label:'Customers & Booking',items:['customers','appointments','schedule','availability','archived','job_assignments']},
+    {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval']},
+    {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
+    {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments']},
+    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications']},
+    {id:'system',label:'System & Security',items:['permissions','audit','visitors']},
+  ];
+
   // Monthly cashflow chart data (last 6 months)
   const cashflowData = (() => {
     const months: { label: string; revenue: number }[] = [];
@@ -353,12 +364,8 @@ const handleDeleteAvailability = async (id: string) => {
           <div><p>{profile?.full_name ?? 'Admin'}</p><span>Administrator</span></div>
         </div>
 
-        <nav className="sidebar-nav">
-          {navItems.map(({ id, label, Icon }) => (
-            <button key={id} className={`sidebar-item ${tab === id ? 'sidebar-active' : ''}`} onClick={() => { setTab(id); setSidebarOpen(false); }}>
-              <Icon size={18} /> {label}
-            </button>
-          ))}
+        <nav className="sidebar-nav grouped-sidebar">
+          {navGroups.map(g=><div className="nav-group" key={g.id}><button className="nav-group-title" onClick={()=>setNavGroupsOpen(p=>({...p,[g.id]:!p[g.id]}))}><span>{g.label}</span><ChevronUp size={14} className={navGroupsOpen[g.id]?'':'nav-chevron-closed'}/></button>{navGroupsOpen[g.id]&&g.items.map(id=>{const item=navItems.find(n=>n.id===id);if(!item)return null;const {label,Icon}=item;return <button key={id} className={`sidebar-item ${tab===id?'sidebar-active':''}`} onClick={()=>{setTab(id as AdminTab);setSidebarOpen(false)}}><Icon size={18}/>{label}</button>})}</div>)}
         </nav>
 
         <div className="sidebar-footer">
