@@ -468,6 +468,13 @@ const handleDeleteAvailability = async (id: string) => {
                         {a.status !== 'completed' && a.status !== 'cancelled' && (
                           <>
                             <button className="btn-sm btn-outline" onClick={() => handleUpdateAptStatus(a.id, 'confirmed')}>Confirm</button>
+                            <button
+  className="btn-sm btn-outline"
+  onClick={() => handleUpdateAptStatus(a.id, 'cancelled')}
+>
+  Decline
+</button>
+                            
                             <button className="btn-sm btn-primary" onClick={() => handleUpdateAptStatus(a.id, 'completed')}>Complete</button>
                           </>
                         )}
