@@ -163,6 +163,24 @@ const [availabilityForm, setAvailabilityForm] = useState({
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
   };
 
+const handleArchiveAppointment = async (id: string) => {
+  const { error } = await supabase
+    .from('appointments')
+    .update({ archived: true })
+    .eq('id', id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setAppointments(prev =>
+    prev.map(a =>
+      a.id === id ? { ...a, archived: true } : a
+    )
+  );
+};
+  
 const handleSaveAvailability = async (e: React.FormEvent) => {
   e.preventDefault();
 
