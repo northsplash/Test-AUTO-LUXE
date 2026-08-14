@@ -6,6 +6,10 @@ import {
   Eye, DollarSign, Activity, ChevronUp, ChevronDown, Globe
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  // your existing icons...
+  Archive
+} from 'lucide-react';
 import { signOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
