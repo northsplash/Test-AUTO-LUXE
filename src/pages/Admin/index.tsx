@@ -357,8 +357,17 @@ const handleDeleteAvailability = async (id: string) => {
                       <div key={a.id} className="admin-row">
                         <div className="admin-row-main">
                           <strong>{a.service_name}</strong>
-                          <span>{new Date(a.created_at).toLocaleDateString()}</span>
-                        </div>
+<span>
+  {a.scheduled_at
+    ? new Date(a.scheduled_at).toLocaleString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : 'Not scheduled'}
+</span>                        </div>
                         <div className="admin-row-right">
                           <StatusBadge status={a.status} />
                           <strong>{money(a.price)}</strong>
@@ -465,8 +474,17 @@ const handleDeleteAvailability = async (id: string) => {
                       </div>
                       <span className="dt-cell"><strong>{money(a.price)}</strong></span>
                       <span className="dt-cell"><StatusBadge status={a.status} /></span>
-                      <span className="dt-cell">{new Date(a.created_at).toLocaleDateString()}</span>
-                      <div className="dt-cell dt-actions">
+<span className="dt-cell">
+  {a.scheduled_at
+    ? new Date(a.scheduled_at).toLocaleString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : 'Not scheduled'}
+</span>                      <div className="dt-cell dt-actions">
                         {a.status !== 'completed' && a.status !== 'cancelled' && (
                           <>
                             <button className="btn-sm btn-outline" onClick={() => handleUpdateAptStatus(a.id, 'confirmed')}>Confirm</button>
