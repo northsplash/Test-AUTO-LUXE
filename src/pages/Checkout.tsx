@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 declare global {
   interface Window {
@@ -9,8 +10,33 @@ declare global {
 
 export default function Checkout() {
   const cardRef = useRef<any>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
+
+  const checkout = location.state as
+    | {
+        paymentType?: 'appointment' | 'membership';
+
+        appointmentId?: string;
+        subscriptionId?: string;
+
+        amount: number;
+        serviceName: string;
+        servicePrice: number;
+
+        vehicleName?: string;
+        vehicleExtra?: number;
+
+        addOns?: {
+          name: string;
+          price: number;
+        }[];
+      }
+    | undefined;
 
   useEffect(() => {
     const loadSquare = async () => {
@@ -28,11 +54,14 @@ export default function Checkout() {
 
           await new Promise<void>((resolve, reject) => {
             script!.onload = () => resolve();
-            script!.onerror = () => reject(new Error('Square failed to load.'));
+            script!.onerror = () =>
+              reject(new Error('Square failed to load.'));
           });
         } else if (!window.Square) {
           await new Promise<void>((resolve) => {
-            script!.addEventListener('load', () => resolve(), { once: true });
+            script!.addEventListener('load', () => resolve(), {
+              once: true,
+            });
           });
         }
 
@@ -77,11 +106,169 @@ export default function Checkout() {
     loadSquare();
 
     return () => {
-      if (cardRef.current) {
-        cardRef.current.destroy?.();
-      }
+      cardRef.current?.destroy?.();
     };
   }, []);
+
+  const handlePayment = async () => {
+    if (!checkout) {
+      setError('Checkout information is missing.');
+      return;
+    }
+
+    if (!cardRef.current) {
+      setError('Payment form is not ready.');
+      return;
+    }
+
+    setPaying(true);
+    setError('');
+
+    try {
+      // Get secure one-time card token from Square
+      const tokenResult = await cardRef.current.tokenize();
+
+      if (tokenResult.status !== 'OK' || !tokenResult.token) {
+        throw new Error(
+          tokenResult.errors?.[0]?.message ||
+            'Unable to verify your card.'
+        );
+      }
+
+      // Charge card through secure Supabase Edge Function
+      const referenceId =
+        checkout.paymentType === 'membership'
+          ? checkout.subscriptionId
+          : checkout.appointmentId;
+
+      const { data, error: paymentError } =
+        await supabase.functions.invoke('process-square-payment', {
+          body: {
+            sourceId: tokenResult.token,
+            amount: checkout.amount,
+            appointmentId: referenceId,
+          },
+        });
+
+      if (paymentError) {
+        throw paymentError;
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          data?.error || 'Payment could not be completed.'
+        );
+      }
+
+      // MEMBERSHIP PAYMENT
+      if (checkout.paymentType === 'membership') {
+        if (!checkout.subscriptionId) {
+          throw new Error('Membership information is missing.');
+        }
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          throw new Error('User session was not found.');
+        }
+
+        const { error: subscriptionError } = await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+          })
+          .eq('id', checkout.subscriptionId);
+
+        if (subscriptionError) throw subscriptionError;
+
+        const { error: membershipPaymentError } = await supabase
+          .from('payments')
+          .insert({
+            user_id: user.id,
+            subscription_id: checkout.subscriptionId,
+            amount: checkout.amount,
+            status: 'completed',
+            description: checkout.serviceName,
+          });
+
+        if (membershipPaymentError) {
+          throw membershipPaymentError;
+        }
+      }
+
+      // APPOINTMENT PAYMENT
+      else {
+        if (!checkout.appointmentId) {
+          throw new Error('Appointment information is missing.');
+        }
+
+        const { error: paymentRecordError } = await supabase
+          .from('payments')
+          .update({
+            status: 'completed',
+          })
+          .eq('appointment_id', checkout.appointmentId);
+
+        if (paymentRecordError) throw paymentRecordError;
+
+        const { error: appointmentError } = await supabase
+          .from('appointments')
+          .update({
+            status: 'confirmed',
+          })
+          .eq('id', checkout.appointmentId);
+
+        if (appointmentError) throw appointmentError;
+      }
+
+      navigate('/portal', {
+        replace: true,
+        state: {
+          paymentSuccess: true,
+        },
+      });
+    } catch (err) {
+      console.error('Payment error:', err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Payment failed. Please try again.'
+      );
+
+      setPaying(false);
+    }
+  };
+
+  if (!checkout) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#090909',
+          color: '#fff',
+          padding: '40px 20px',
+        }}
+      >
+        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+          <h1>No checkout found</h1>
+
+          <p style={{ color: '#999' }}>
+            Return to your portal and start your booking again.
+          </p>
+
+          <Link to="/portal" style={{ color: '#c9a96e' }}>
+            Return to portal
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const addOns = checkout.addOns ?? [];
+  const vehicleExtra = checkout.vehicleExtra ?? 0;
 
   return (
     <div
@@ -94,7 +281,7 @@ export default function Checkout() {
     >
       <div
         style={{
-          maxWidth: '650px',
+          maxWidth: '760px',
           margin: '0 auto',
         }}
       >
@@ -117,11 +304,7 @@ export default function Checkout() {
             borderRadius: '16px',
           }}
         >
-          <div
-            style={{
-              marginBottom: '30px',
-            }}
-          >
+          <div style={{ marginBottom: '30px' }}>
             <div
               style={{
                 fontSize: '13px',
@@ -158,8 +341,61 @@ export default function Checkout() {
               marginBottom: '30px',
             }}
           >
-            Complete your payment securely with Square.
+            {checkout.paymentType === 'membership'
+              ? 'Complete your membership payment securely with Square.'
+              : 'Review your service and complete your payment securely with Square.'}
           </p>
+
+          {/* ORDER SUMMARY */}
+          <div
+            style={{
+              background: '#0b0b0b',
+              border: '1px solid #242424',
+              borderRadius: '12px',
+              padding: '22px',
+              marginBottom: '28px',
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Order Summary</h3>
+
+            <OrderRow
+              name={checkout.serviceName}
+              price={checkout.servicePrice}
+            />
+
+            {vehicleExtra > 0 && (
+              <OrderRow
+                name={`${checkout.vehicleName} Vehicle Upgrade`}
+                price={vehicleExtra}
+              />
+            )}
+
+            {addOns.map(addOn => (
+              <OrderRow
+                key={addOn.name}
+                name={addOn.name}
+                price={addOn.price}
+              />
+            ))}
+
+            <div
+              style={{
+                borderTop: '1px solid #333',
+                marginTop: '16px',
+                paddingTop: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '20px',
+                fontWeight: 700,
+              }}
+            >
+              <span>Total</span>
+
+              <span style={{ color: '#c9a96e' }}>
+                ${checkout.amount.toFixed(2)}
+              </span>
+            </div>
+          </div>
 
           {loading && (
             <p style={{ color: '#aaa' }}>
@@ -172,6 +408,7 @@ export default function Checkout() {
               style={{
                 padding: '12px',
                 background: '#2a1111',
+                border: '1px solid #5a2020',
                 borderRadius: '8px',
                 marginBottom: '20px',
               }}
@@ -188,7 +425,8 @@ export default function Checkout() {
           />
 
           <button
-            disabled={loading || !!error}
+            onClick={handlePayment}
+            disabled={loading || paying}
             style={{
               width: '100%',
               padding: '16px',
@@ -198,10 +436,13 @@ export default function Checkout() {
               color: '#090909',
               fontSize: '15px',
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: paying ? 'not-allowed' : 'pointer',
+              opacity: paying ? 0.7 : 1,
             }}
           >
-            Pay Securely
+            {paying
+              ? 'Processing Payment...'
+              : `Pay $${checkout.amount.toFixed(2)}`}
           </button>
 
           <p
@@ -216,6 +457,29 @@ export default function Checkout() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function OrderRow({
+  name,
+  price,
+}: {
+  name: string;
+  price: number;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: '20px',
+        padding: '9px 0',
+        color: '#ddd',
+      }}
+    >
+      <span>{name}</span>
+      <strong>${price.toFixed(2)}</strong>
     </div>
   );
 }
