@@ -16,6 +16,7 @@ import { money } from '@/lib/data';
 import BusinessSuite, { BusinessSection } from './BusinessSuite';
 import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
 import OperationsExpansion, { ExpansionSection } from './OperationsExpansion';
+import Phase300Suite from './Phase300Suite';
 
 type AdminTab =
   | 'dashboard'
@@ -999,7 +1000,11 @@ const handleDeleteAvailability = async (id: string) => {
             />
           )}
 
-          {(['job_assignments','leads','territories','tasks','equipment','documents','reports','permissions','notifications','time_off','payroll_approval','audit'] as AdminTab[]).includes(tab) && (
+          {(['command_center','crm','dispatch','leads','territories','training','communications','automations'] as AdminTab[]).includes(tab) && (
+            <Phase300Suite section={tab as any} employees={employees} appointments={appointments} setAppointments={setAppointments} customers={customers} payments={payments} />
+          )}
+
+          {(['job_assignments','tasks','equipment','documents','reports','permissions','notifications','time_off','payroll_approval','audit'] as AdminTab[]).includes(tab) && (
             <EnterpriseSuite
               section={tab as EnterpriseSection}
               employees={employees}
@@ -1009,7 +1014,7 @@ const handleDeleteAvailability = async (id: string) => {
             />
           )}
 
-          {(['command_center','crm','dispatch','fleet','locations','marketing','automations','approvals','incidents','training','purchasing','communications','retention','continuity'] as AdminTab[]).includes(tab) && (
+          {(['fleet','locations','marketing','approvals','incidents','purchasing','retention','continuity'] as AdminTab[]).includes(tab) && (
             <OperationsExpansion section={tab as ExpansionSection} employees={employees} appointments={appointments} customers={customers} payments={payments} />
           )}
 

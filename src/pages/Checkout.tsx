@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { sendCommunication } from '@/lib/communications';
 
 declare global {
   interface Window {
@@ -251,6 +252,30 @@ export default function Checkout() {
 
     if (appointmentError) {
       throw appointmentError;
+    }
+
+    const { data: apptForEmail } = await supabase
+      .from('appointments')
+      .select('customer_name,customer_email,scheduled_at,service_name,user_id')
+      .eq('id', checkout.appointmentId)
+      .maybeSingle();
+    let recipient = apptForEmail?.customer_email || '';
+    if (!recipient && apptForEmail?.user_id) {
+      const { data: customer } = await supabase.from('profiles').select('email,full_name').eq('id', apptForEmail.user_id).maybeSingle();
+      recipient = customer?.email || '';
+      if (recipient) apptForEmail.customer_name = apptForEmail.customer_name || customer?.full_name || 'Customer';
+    }
+    if (recipient) {
+      sendCommunication('booking_confirmed', {
+        appointment_id: checkout.appointmentId,
+        recipient_email: recipient,
+        variables: {
+          customer_name: apptForEmail?.customer_name || 'Customer',
+          service_name: apptForEmail?.service_name || checkout.serviceName,
+          appointment_date: apptForEmail?.scheduled_at ? new Date(apptForEmail.scheduled_at).toLocaleDateString('en-US') : '',
+          appointment_time: apptForEmail?.scheduled_at ? new Date(apptForEmail.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
+        },
+      }).catch(console.warn);
     }
 
     navigate('/portal', {

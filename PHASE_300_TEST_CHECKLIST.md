@@ -1,0 +1,44 @@
+# Phase 300 test checklist
+
+- [ ] Vercel deployment is Ready
+- [ ] Phase 300 SQL completes
+- [ ] Owner Admin loads
+- [ ] Territory can be created, edited and resized
+- [ ] Overlap warning appears
+- [ ] Houses load inside territory
+- [ ] House address resolves on tap
+- [ ] Do Not Knock survives territory reassignment
+- [ ] D2D rep sees only assigned work
+- [ ] D2D route starts/pauses/resumes
+- [ ] D2D offline queue reconnects
+- [ ] Lead converts to estimate/appointment
+- [ ] Salesperson attribution is preserved
+- [ ] Dispatch drag/drop assignment works
+- [ ] Conflict warning appears on overlapping jobs
+- [ ] Detailer sees assigned job
+- [ ] En Route / Arrived / Started update correctly
+- [ ] Required checklist works
+- [ ] Before/after photos upload
+- [ ] Vehicle condition record saves
+- [ ] Customer signature saves
+- [ ] Finish sends job to QC
+- [ ] Manager can Pass/Rework QC
+- [ ] Completed paid D2D job creates commission ledger entry
+- [ ] Time clock/break flow works
+- [ ] Manager approves timecards
+- [ ] Employee invite links account and portal
+- [ ] Deactivation removes staff access
+- [ ] Training course can be created
+- [ ] Lesson/video/PDF can be added
+- [ ] Quiz can be taken/scored
+- [ ] Manager signoff works
+- [ ] Customer booking email comes from noreply@northsplash.com
+- [ ] Customer job updates come from noreply@northsplash.com
+- [ ] Recruiting/onboarding email comes from Admin@northsplash.com
+- [ ] Communication delivery log records message
+- [ ] Automation worker processes pending events
+- [ ] PWA can be added to iPad/iPhone Home Screen
+- [ ] Customer account cannot enter staff portals
+- [ ] D2D cannot access owner finance/pay permissions
+- [ ] Detailer cannot edit another employee's timecard
+- [ ] Manager permissions match owner settings

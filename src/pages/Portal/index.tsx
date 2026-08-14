@@ -10,6 +10,7 @@ import { signOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Appointment, Payment, Subscription } from '@/lib/supabase';
 import { money, calcSavings, PACKAGES, ADD_ONS, VEHICLE_SIZES, MEMBERSHIPS } from '@/lib/data';
+import { sendCommunication } from '@/lib/communications';
 
 type Tab = 'dashboard' | 'appointments' | 'subscription' | 'billing';
 
@@ -216,6 +217,9 @@ const [timesLoading, setTimesLoading] = useState(false);
       .from('appointments')
       .insert({
         user_id: user.id,
+        customer_name: profile?.full_name ?? null,
+        customer_email: user.email ?? null,
+        customer_phone: profile?.phone ?? null,
         service_name: PACKAGES[bookPkg].name,
         scheduled_at: new Date(
   `${bookDate}T${bookTime}:00`
@@ -243,6 +247,19 @@ const [timesLoading, setTimesLoading] = useState(false);
       });
 
     if (paymentError) throw paymentError;
+
+    if (user.email) {
+      sendCommunication('booking_received', {
+        appointment_id: appointment.id,
+        recipient_email: user.email,
+        variables: {
+          customer_name: profile?.full_name || 'Customer',
+          service_name: PACKAGES[bookPkg].name,
+          appointment_date: new Date(appointment.scheduled_at).toLocaleDateString('en-US'),
+          appointment_time: new Date(appointment.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        },
+      }).catch(console.warn);
+    }
 
     navigate('/checkout', {
   state: {
