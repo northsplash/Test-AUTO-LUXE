@@ -136,3 +136,32 @@ export function calcSavings(lifetimeSpend: number): number {
   // Resale value boost: well-maintained vehicles fetch 10-15% more at sale.
   return Math.round(lifetimeSpend * 3.8);
 }
+
+
+export const RECRUITING_STAGES = [
+  ['applied', 'Applied'],
+  ['review', 'Review'],
+  ['first_interview_pending', '1st Round Interview Pending'],
+  ['second_interview_pending', '2nd Round Interview Pending'],
+  ['background_check', 'Pending Background Check'],
+  ['job_offer_pending', 'Pending Job Offer'],
+  ['offer_accepted', 'Offer Accepted'],
+  ['scheduled_to_start', 'Scheduled to Start'],
+  ['employed', 'Employed'],
+  ['rejected', 'Rejected'],
+  ['withdrawn', 'Withdrawn'],
+  ['no_show', 'No Show'],
+  ['archived', 'Archived'],
+] as const;
+
+export const DEFAULT_PAY_STRUCTURE = [
+  { role: 'detailer', level: 1, label: 'Detailer - Level 1', payType: 'hourly', hourlyRate: 17, weeklyBase: 0, commissionRate: 0 },
+  { role: 'detailer', level: 2, label: 'Detailer - Level 2', payType: 'hourly', hourlyRate: 18, weeklyBase: 0, commissionRate: 0 },
+  { role: 'detailer', level: 3, label: 'Detailer - Level 3', payType: 'hourly', hourlyRate: 19, weeklyBase: 0, commissionRate: 0 },
+  { role: 'manager', level: 1, label: 'Manager - Level 1', payType: 'hourly', hourlyRate: 22, weeklyBase: 0, commissionRate: 0 },
+  { role: 'manager', level: 2, label: 'Manager - Level 2', payType: 'hourly', hourlyRate: 24, weeklyBase: 0, commissionRate: 0 },
+  { role: 'manager', level: 3, label: 'Manager - Level 3', payType: 'hourly', hourlyRate: 26, weeklyBase: 0, commissionRate: 0 },
+  { role: 'd2d_agent', level: 1, label: 'D2D Sales - Level 1', payType: 'base_commission', hourlyRate: 0, weeklyBase: 300, commissionRate: 10 },
+  { role: 'd2d_agent', level: 2, label: 'D2D Sales - Level 2', payType: 'base_commission', hourlyRate: 0, weeklyBase: 350, commissionRate: 12.5 },
+  { role: 'd2d_agent', level: 3, label: 'D2D Sales - Level 3', payType: 'base_commission', hourlyRate: 0, weeklyBase: 400, commissionRate: 15 },
+] as const;
