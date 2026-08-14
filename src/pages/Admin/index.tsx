@@ -484,7 +484,9 @@ const handleDeleteAvailability = async (id: string) => {
                   <div className="data-table-head">
                     <span>Service</span><span>Price</span><span>Status</span><span>Date</span><span>Actions</span>
                   </div>
-                  {appointments.map(a => (
+                  {appointments
+  .filter(a => !a.archived)
+  .map(a => (
                     <div key={a.id} className="data-table-row">
                       <div className="dt-cell dt-service">
                         <strong>{a.service_name}</strong>
