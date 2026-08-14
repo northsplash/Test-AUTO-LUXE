@@ -265,6 +265,11 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'customers' as AdminTab, label: 'Customers', Icon: Users },
     { id: 'appointments' as AdminTab, label: 'Appointments', Icon: Calendar },
     { id: 'availability' as AdminTab, label: 'Availability', Icon: Calendar },
+    {
+  id: 'archived' as AdminTab,
+  label: 'Archived Details',
+  Icon: Archive,
+},
     { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
