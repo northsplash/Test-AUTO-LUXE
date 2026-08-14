@@ -15,6 +15,7 @@ import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
 import { money } from '@/lib/data';
 import BusinessSuite, { BusinessSection } from './BusinessSuite';
 import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
+import OperationsExpansion, { ExpansionSection } from './OperationsExpansion';
 
 type AdminTab =
   | 'dashboard'
@@ -44,7 +45,8 @@ type AdminTab =
   | 'payroll_approval'
   | 'audit'
   | 'payments'
-  | 'visitors';
+  | 'visitors'
+  | 'command_center' | 'crm' | 'dispatch' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'retention' | 'continuity';
 
 function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
   return (
@@ -317,18 +319,32 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'pay_settings' as AdminTab, label: 'Pay Structure', Icon: Settings2 },
     { id: 'permissions' as AdminTab, label: 'Portal Permissions', Icon: ShieldCheck },
     { id: 'audit' as AdminTab, label: 'Audit Log', Icon: ScrollText },
+    { id: 'command_center' as AdminTab, label: 'Command Center', Icon: Gauge },
+    { id: 'crm' as AdminTab, label: 'Customer CRM', Icon: Users },
+    { id: 'dispatch' as AdminTab, label: 'Dispatch Board', Icon: CalendarClock },
+    { id: 'fleet' as AdminTab, label: 'Fleet Accounts', Icon: Car },
+    { id: 'locations' as AdminTab, label: 'Locations', Icon: Globe },
+    { id: 'marketing' as AdminTab, label: 'Marketing', Icon: TrendingUp },
+    { id: 'automations' as AdminTab, label: 'Automations', Icon: Settings2 },
+    { id: 'approvals' as AdminTab, label: 'Approvals', Icon: ClipboardCheck },
+    { id: 'incidents' as AdminTab, label: 'Incidents', Icon: ShieldCheck },
+    { id: 'training' as AdminTab, label: 'Training', Icon: FileText },
+    { id: 'purchasing' as AdminTab, label: 'Purchasing', Icon: PackageSearch },
+    { id: 'communications' as AdminTab, label: 'Communications', Icon: Bell },
+    { id: 'retention' as AdminTab, label: 'Retention', Icon: Target },
+    { id: 'continuity' as AdminTab, label: 'Backups & Exports', Icon: Archive },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
   ];
 
   const navGroups = [
-    {id:'core',label:'Overview',items:['dashboard']},
-    {id:'customers',label:'Customers & Booking',items:['customers','appointments','schedule','availability','archived','job_assignments']},
-    {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval']},
+    {id:'core',label:'Overview',items:['dashboard','command_center']},
+    {id:'customers',label:'Customers & Booking',items:['customers','crm','appointments','schedule','availability','archived','job_assignments','dispatch','fleet']},
+    {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval','training']},
     {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
-    {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments']},
-    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications']},
-    {id:'system',label:'System & Security',items:['permissions','audit','visitors']},
+    {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments','marketing','retention']},
+    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','communications','approvals']},
+    {id:'system',label:'System & Security',items:['permissions','automations','locations','continuity','audit','visitors']},
   ];
 
   // Monthly cashflow chart data (last 6 months)
@@ -991,6 +1007,10 @@ const handleDeleteAvailability = async (id: string) => {
               appointments={appointments}
               setAppointments={setAppointments}
             />
+          )}
+
+          {(['command_center','crm','dispatch','fleet','locations','marketing','automations','approvals','incidents','training','purchasing','communications','retention','continuity'] as AdminTab[]).includes(tab) && (
+            <OperationsExpansion section={tab as ExpansionSection} employees={employees} appointments={appointments} customers={customers} payments={payments} />
           )}
 
           {/* EMPLOYEES */}
