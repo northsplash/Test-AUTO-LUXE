@@ -1305,3 +1305,63 @@ h4 { font-size: 16px; }
   .tab-panel { padding: 32px 20px; }
   .tab-nav-wrap { top: 68px; }
 }
+
+/* ================= BUSINESS OPERATIONS SUITE ================= */
+.business-suite { display: flex; flex-direction: column; gap: 24px; }
+.ops-align-start { align-items: start; }
+.ops-form { display: flex; flex-direction: column; gap: 14px; }
+.ops-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.ops-kpi-row > div {
+  background: var(--white); border: 1px solid var(--line); padding: 18px;
+  display: flex; flex-direction: column; gap: 4px; min-height: 88px; justify-content: center;
+}
+.ops-kpi-row strong { font-size: 23px; letter-spacing: -.5px; }
+.ops-kpi-row span { color: var(--muted); font-size: 10px; letter-spacing: .8px; text-transform: uppercase; font-weight: 700; }
+.ops-positive strong { color: var(--green); }
+.ops-negative strong { color: #9d2f2f; }
+.recruit-pipeline { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.recruit-pipeline > div { border: 1px solid var(--line); padding: 14px; min-height: 78px; display: flex; flex-direction: column; justify-content: center; }
+.recruit-pipeline strong { font-size: 20px; }
+.recruit-pipeline span { font-size: 10px; color: var(--muted); line-height: 1.35; }
+.ops-list { display: flex; flex-direction: column; }
+.ops-list-row {
+  display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(120px, .8fr)) minmax(120px, .7fr);
+  gap: 16px; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--line);
+}
+.ops-list-row:last-child { border-bottom: 0; }
+.ops-list-row > div:not(.ops-primary):not(.ops-actions) { display: flex; flex-direction: column; gap: 4px; }
+.ops-primary { display: flex; flex-direction: column; gap: 4px; }
+.ops-primary strong { font-size: 13px; }
+.ops-primary span, .ops-list-row span { color: var(--muted); font-size: 11px; }
+.ops-label { display: block; text-transform: uppercase; font-size: 9px !important; letter-spacing: 1px; font-weight: 700; }
+.ops-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.ops-list-row select, .ops-inline-input {
+  border: 1px solid var(--line); background: var(--paper); padding: 8px 10px; font-size: 11px; min-width: 120px;
+}
+.payroll-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.payroll-mini-grid > div { border: 1px solid var(--line); padding: 13px; display: flex; flex-direction: column; gap: 4px; }
+.payroll-mini-grid strong { font-size: 12px; }
+.payroll-mini-grid span { font-size: 10px; color: var(--muted); }
+.payroll-mini-grid b { font-size: 13px; color: var(--gold-dark); }
+.pay-setting-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.pay-setting-card { border: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.pay-setting-card > div:first-child { display: flex; flex-direction: column; gap: 3px; }
+.pay-setting-card > div:first-child span { color: var(--muted); font-size: 10px; }
+.ops-note { margin-top: 18px; padding: 14px; background: #f7f3e9; border: 1px solid #e8dfc7; color: #5d523b; font-size: 11px; line-height: 1.6; }
+.ops-checkbox { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 12px; }
+.ops-muted { color: var(--muted); font-size: 10px; }
+.ops-five { grid-template-columns: 1.4fr repeat(3, .8fr) 1.2fr !important; }
+.emp-level { color: var(--gold-dark) !important; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; font-size: 9px !important; }
+
+@media (max-width: 1100px) {
+  .ops-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .pay-setting-grid { grid-template-columns: repeat(2, 1fr); }
+  .ops-list-row { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 700px) {
+  .ops-kpi-row, .pay-setting-grid, .recruit-pipeline, .payroll-mini-grid { grid-template-columns: 1fr; }
+  .ops-list-row { grid-template-columns: 1fr; align-items: start; }
+  .ops-actions { justify-content: flex-start; }
+  .ops-five { grid-template-columns: 1fr !important; }
+}
