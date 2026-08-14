@@ -271,29 +271,55 @@ const [timesLoading, setTimesLoading] = useState(false);
   }
 };
   const handleSubscribe = async (plan: typeof MEMBERSHIPS[0]) => {
-    if (!user) return;
+  if (!user) return;
+
+  try {
     const nextDate = new Date();
     nextDate.setMonth(nextDate.getMonth() + 1);
-    await supabase.from('subscriptions').insert({
-      user_id: user.id,
-      plan_name: plan.name,
-      plan_price: plan.price,
-      status: 'active',
-      next_detail_date: nextDate.toISOString().split('T')[0],
-      billing_cycle_start: new Date().toISOString().split('T')[0],
-    });
-    const { data } = await supabase.from('subscriptions').select('*').eq('user_id', user.id).eq('status', 'active').maybeSingle();
-    setSubscription(data);
-  };
 
-  if (loading || dataLoading) {
-    return (
-      <div className="portal-loading">
-        <div className="portal-spinner" />
-        <p>Loading your portal...</p>
-      </div>
+    const { data: newSubscription, error } = await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: user.id,
+        plan_name: plan.name,
+        plan_price: plan.price,
+
+        // Don't activate until payment succeeds
+        status: 'pending',
+
+        next_detail_date: nextDate.toISOString().split('T')[0],
+        billing_cycle_start: new Date().toISOString().split('T')[0],
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    navigate('/checkout', {
+      state: {
+        paymentType: 'membership',
+        subscriptionId: newSubscription.id,
+
+        amount: plan.price,
+
+        serviceName: `${plan.name} Membership`,
+        servicePrice: plan.price,
+
+        vehicleName: '',
+        vehicleExtra: 0,
+        addOns: [],
+      },
+    });
+  } catch (error) {
+    console.error('Membership checkout error:', error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : 'Unable to start membership payment.'
     );
   }
+};
 
   const navItems: { id: Tab; label: string; Icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
