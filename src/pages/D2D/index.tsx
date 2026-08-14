@@ -8,7 +8,7 @@ import type { Employee, Lead, LeadTerritory, SalesRecord, TimeEntry } from '@/li
 import { money } from '@/lib/data';
 
 type Tab='map'|'leads'|'followups'|'sales'|'timeclock';
-const card:React.CSSProperties={background:'#111',border:'1px solid #292929',borderRadius:14,padding:20};
+const card:React.CSSProperties={background:'#111',border:'1px solid #292929',borderRadius:14,padding:20,color:'#fff'};
 const STATUS=[['new','New'],['not_home','Not Home'],['no_answer','No Answer'],['interested','Interested'],['follow_up','Follow Up'],['appointment_set','Appointment Set'],['estimate_sent','Estimate Sent'],['sold','Sold'],['not_interested','Not Interested'],['do_not_knock','Do Not Knock'],['existing_customer','Existing Customer'],['bad_address','Bad Address'],['lost','Lost']] as const;
 const dt=(v?:string|null)=>v?new Date(v).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'—';
 
