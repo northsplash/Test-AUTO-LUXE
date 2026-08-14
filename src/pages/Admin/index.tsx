@@ -17,6 +17,7 @@ type AdminTab =
   | 'appointments'
   | 'schedule'
   | 'availability'
+  | 'archived'
   | 'employees'
   | 'payments'
   | 'visitors';
