@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, CreditCard, UserCheck, Car,
-  TrendingUp, BarChart2, LogOut, Menu, X, Plus, Edit2, Trash2,
-  Eye, DollarSign, Activity, ChevronUp, ChevronDown, Globe
+  TrendingUp, BarChart2, LogOut, Menu, X, Plus, Trash2,
+  Eye, DollarSign, Activity, ChevronUp, Globe, Archive,
+  BriefcaseBusiness, CalendarClock, Clock3, PackageSearch, Settings2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import {
-  // your existing icons...
-  Archive
-} from 'lucide-react';
 import { signOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
 import { money } from '@/lib/data';
+import BusinessSuite, { BusinessSection } from './BusinessSuite';
 
 type AdminTab =
   | 'dashboard'
@@ -23,6 +21,13 @@ type AdminTab =
   | 'availability'
   | 'archived'
   | 'employees'
+  | 'recruiting'
+  | 'staff_schedule'
+  | 'timeclock'
+  | 'finance'
+  | 'sales'
+  | 'inventory'
+  | 'pay_settings'
   | 'payments'
   | 'visitors';
 
@@ -76,7 +81,7 @@ const [availabilityForm, setAvailabilityForm] = useState({
 
   // Employee form
   const [showEmpForm, setShowEmpForm] = useState(false);
-  const [empForm, setEmpForm] = useState({ name: '', role: 'detailer', phone: '', email: '', commission_rate: 0 });
+  const [empForm, setEmpForm] = useState({ name: '', role: 'detailer', phone: '', email: '', employment_level: 1, pay_type: 'hourly', hourly_rate: 17, weekly_base: 0, commission_rate: 0 });
   const [empSubmitting, setEmpSubmitting] = useState(false);
 
   useEffect(() => {
@@ -151,11 +156,16 @@ const [availabilityForm, setAvailabilityForm] = useState({
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmpSubmitting(true);
-    const { data } = await supabase.from('employees').insert(empForm).select().single();
+    const { data, error } = await supabase.from('employees').insert(empForm).select().single();
+    if (error) {
+      alert(error.message);
+      setEmpSubmitting(false);
+      return;
+    }
     if (data) setEmployees(prev => [data, ...prev]);
     setEmpSubmitting(false);
     setShowEmpForm(false);
-    setEmpForm({ name: '', role: 'detailer', phone: '', email: '', commission_rate: 0 });
+    setEmpForm({ name: '', role: 'detailer', phone: '', email: '', employment_level: 1, pay_type: 'hourly', hourly_rate: 17, weekly_base: 0, commission_rate: 0 });
   };
 
   const handleDeleteEmployee = async (id: string) => {
@@ -268,16 +278,19 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'dashboard' as AdminTab, label: 'Dashboard', Icon: LayoutDashboard },
     { id: 'customers' as AdminTab, label: 'Customers', Icon: Users },
     { id: 'appointments' as AdminTab, label: 'Appointments', Icon: Calendar },
+    { id: 'schedule' as AdminTab, label: 'Customer Schedule', Icon: CalendarClock },
     { id: 'availability' as AdminTab, label: 'Availability', Icon: Calendar },
-    {
-  id: 'archived' as AdminTab,
-  label: 'Archived Details',
-  Icon: Archive,
-},
+    { id: 'archived' as AdminTab, label: 'Archived Details', Icon: Archive },
+    { id: 'recruiting' as AdminTab, label: 'Recruiting', Icon: BriefcaseBusiness },
     { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
+    { id: 'staff_schedule' as AdminTab, label: 'Employee Schedule', Icon: CalendarClock },
+    { id: 'timeclock' as AdminTab, label: 'Time Clock', Icon: Clock3 },
+    { id: 'sales' as AdminTab, label: 'D2D Sales', Icon: TrendingUp },
+    { id: 'finance' as AdminTab, label: 'Finance & Payroll', Icon: DollarSign },
+    { id: 'inventory' as AdminTab, label: 'Inventory', Icon: PackageSearch },
+    { id: 'pay_settings' as AdminTab, label: 'Pay Structure', Icon: Settings2 },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
     { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
-    { id: 'schedule' as AdminTab, label: 'Schedule', Icon: Calendar },
   ];
 
   // Monthly cashflow chart data (last 6 months)
@@ -927,6 +940,15 @@ const handleDeleteAvailability = async (id: string) => {
   </div>
 )}
           
+          {(['recruiting', 'staff_schedule', 'timeclock', 'finance', 'sales', 'inventory', 'pay_settings'] as BusinessSection[]).includes(tab as BusinessSection) && (
+            <BusinessSuite
+              section={tab as BusinessSection}
+              employees={employees}
+              setEmployees={setEmployees}
+              completedRevenue={monthRevenue}
+            />
+          )}
+
           {/* EMPLOYEES */}
           {tab === 'employees' && (
             <div className="tab-content">
@@ -959,10 +981,11 @@ const handleDeleteAvailability = async (id: string) => {
                               <div className="emp-info">
                                 <strong>{e.name}</strong>
                                 <span>{e.email ?? e.phone ?? '—'}</span>
+                                <span className="emp-level">{e.role === 'd2d_agent' ? 'D2D Sales' : e.role.charAt(0).toUpperCase() + e.role.slice(1)} · Level {e.employment_level ?? 1}</span>
                               </div>
                               <div className="emp-stats">
                                 <div><strong>{e.jobs_completed}</strong><span>Jobs</span></div>
-                                <div><strong>{e.commission_rate}%</strong><span>Comm.</span></div>
+                                <div><strong>{e.role === 'd2d_agent' ? `${e.commission_rate}%` : `$${Number(e.hourly_rate ?? 0).toFixed(0)}/hr`}</strong><span>{e.role === 'd2d_agent' ? 'Comm.' : 'Rate'}</span></div>
                               </div>
                               <StatusBadge status={e.status} />
                               <button className="emp-delete" onClick={() => handleDeleteEmployee(e.id)}><Trash2 size={14} /></button>
@@ -1061,9 +1084,20 @@ const handleDeleteAvailability = async (id: string) => {
                 </div>
                 <div className="form-group">
                   <label>Role</label>
-                  <select value={empForm.role} onChange={e => setEmpForm(p => ({...p, role: e.target.value}))}>
+                  <select value={empForm.role} onChange={e => {
+                    const role = e.target.value;
+                    setEmpForm(p => ({
+                      ...p,
+                      role,
+                      employment_level: 1,
+                      pay_type: role === 'd2d_agent' ? 'base_commission' : 'hourly',
+                      hourly_rate: role === 'manager' ? 22 : role === 'detailer' ? 17 : 0,
+                      weekly_base: role === 'd2d_agent' ? 300 : 0,
+                      commission_rate: role === 'd2d_agent' ? 10 : 0,
+                    }));
+                  }}>
                     <option value="detailer">Detailer</option>
-                    <option value="d2d_agent">D2D Agent</option>
+                    <option value="d2d_agent">D2D Sales</option>
                     <option value="manager">Manager</option>
                   </select>
                 </div>
@@ -1078,10 +1112,30 @@ const handleDeleteAvailability = async (id: string) => {
                   <input type="tel" value={empForm.phone} onChange={e => setEmpForm(p => ({...p, phone: e.target.value}))} placeholder="330-000-0000" />
                 </div>
               </div>
-              <div className="form-group">
-                <label>Commission Rate (%)</label>
-                <input type="number" min="0" max="100" value={empForm.commission_rate} onChange={e => setEmpForm(p => ({...p, commission_rate: Number(e.target.value)}))} />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Employee Level</label>
+                  <select value={empForm.employment_level} onChange={e => {
+                    const level = Number(e.target.value);
+                    const role = empForm.role;
+                    const hourly = role === 'detailer' ? ({1:17,2:18,3:19} as Record<number,number>)[level] : role === 'manager' ? ({1:22,2:24,3:26} as Record<number,number>)[level] : 0;
+                    const base = role === 'd2d_agent' ? ({1:300,2:350,3:400} as Record<number,number>)[level] : 0;
+                    const comm = role === 'd2d_agent' ? ({1:10,2:12.5,3:15} as Record<number,number>)[level] : 0;
+                    setEmpForm(p => ({...p, employment_level: level, hourly_rate: hourly, weekly_base: base, commission_rate: comm}));
+                  }}>
+                    <option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option>
+                  </select>
+                </div>
+                {empForm.role === 'd2d_agent' ? (
+                  <div className="form-group"><label>Weekly Base</label><input type="number" value={empForm.weekly_base} onChange={e=>setEmpForm(p=>({...p,weekly_base:Number(e.target.value)}))}/></div>
+                ) : (
+                  <div className="form-group"><label>Hourly Rate</label><input type="number" step="0.25" value={empForm.hourly_rate} onChange={e=>setEmpForm(p=>({...p,hourly_rate:Number(e.target.value)}))}/></div>
+                )}
               </div>
+              {empForm.role === 'd2d_agent' && <div className="form-group">
+                <label>Commission Rate (%)</label>
+                <input type="number" min="0" max="100" step="0.5" value={empForm.commission_rate} onChange={e => setEmpForm(p => ({...p, commission_rate: Number(e.target.value)}))} />
+              </div>}
               <button type="submit" className="btn-primary btn-full" disabled={empSubmitting}>
                 {empSubmitting ? 'Adding...' : 'Add Team Member'}
               </button>
