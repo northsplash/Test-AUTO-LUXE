@@ -1,0 +1,34 @@
+NORTH SPLASH AUTO LUXE - BUSINESS OPERATIONS SUITE
+
+WHAT WAS ADDED
+- Recruiting pipeline
+- Employee levels shown throughout Team/Pay areas
+- Detailer Level 1/2/3: $17/$18/$19 per hour defaults
+- Manager Level 1/2/3: $22/$24/$26 per hour defaults
+- D2D Level 1/2/3: $300 + 10%, $350 + 12.5%, $400 + 15% defaults
+- Editable Pay Structure page
+- Employee scheduling with add/edit/remove hours
+- Time Clock / timesheet tracking
+- Finance & Payroll estimates: weekly/monthly/lifetime employee income
+- Editable company value
+- Expense tracking and estimated monthly operating profit
+- D2D sales tracking + commission leaderboard
+- Inventory and low-stock alerts
+- Candidate-to-employee hiring action
+
+IMPORTANT SETUP
+1. In Supabase > SQL Editor > New Query, run the entire BUSINESS_SUITE_SETUP.sql file once.
+2. Commit/deploy the updated project to GitHub/Vercel.
+3. Open Admin and verify the new sidebar tabs.
+
+PAYROLL NOTE
+The Finance & Payroll page is an internal estimate/tracking system. It does not file payroll taxes, remit withholding, issue W-2s, or replace a regulated payroll processor for tax compliance.
+
+FILES ADDED/CHANGED
+- src/pages/Admin/index.tsx
+- src/pages/Admin/BusinessSuite.tsx (new)
+- src/lib/supabase.ts
+- src/lib/data.ts
+- src/index.css
+- supabase/migrations/20260814040000_business_operations_suite.sql (new)
+- BUSINESS_SUITE_SETUP.sql (new convenience copy)
