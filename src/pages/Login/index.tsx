@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { signIn, signUp } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { portalPath } from '@/lib/permissions';
 
 export default function Login() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -25,17 +26,18 @@ export default function Login() {
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, portal_role, is_active')
     .eq('id', data.user.id)
     .single();
 
   if (profileError) throw profileError;
+  if (profile?.is_active === false) throw new Error('This account has been disabled.');
 
-  if (profile?.role === 'admin') {
-    navigate('/admin');
-  } else {
-    navigate('/portal');
-  }
+  const destination = profile?.role === 'admin'
+    ? '/admin'
+    : portalPath(profile?.portal_role);
+
+  navigate(destination);
 } else {
         await signUp(email, password, name, phone);
         navigate('/portal');
