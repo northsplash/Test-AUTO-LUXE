@@ -47,7 +47,7 @@ type AdminTab =
   | 'audit'
   | 'payments'
   | 'visitors'
-  | 'command_center' | 'crm' | 'dispatch' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'retention' | 'continuity';
+  | 'command_center' | 'crm' | 'dispatch' | 'crews' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'retention' | 'continuity';
 
 function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
   return (
@@ -323,6 +323,7 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'command_center' as AdminTab, label: 'Command Center', Icon: Gauge },
     { id: 'crm' as AdminTab, label: 'Customer CRM', Icon: Users },
     { id: 'dispatch' as AdminTab, label: 'Dispatch Board', Icon: CalendarClock },
+    { id: 'crews' as AdminTab, label: 'Crew Command', Icon: Users },
     { id: 'fleet' as AdminTab, label: 'Fleet Accounts', Icon: Car },
     { id: 'locations' as AdminTab, label: 'Locations', Icon: Globe },
     { id: 'marketing' as AdminTab, label: 'Marketing', Icon: TrendingUp },
@@ -341,7 +342,7 @@ const handleDeleteAvailability = async (id: string) => {
   const navGroups = [
     {id:'core',label:'Overview',items:['dashboard','command_center']},
     {id:'customers',label:'Customers & Booking',items:['customers','crm','appointments','schedule','availability','archived','job_assignments','dispatch','fleet']},
-    {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval','training']},
+    {id:'people',label:'People & Workforce',items:['recruiting','employees','crews','staff_schedule','timeclock','time_off','payroll_approval','training']},
     {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
     {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments','marketing','retention']},
     {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','approvals']},
@@ -1000,7 +1001,7 @@ const handleDeleteAvailability = async (id: string) => {
             />
           )}
 
-          {(['command_center','crm','dispatch','leads','territories','training','communications','automations'] as AdminTab[]).includes(tab) && (
+          {(['command_center','crm','dispatch','crews','leads','territories','training','communications','automations'] as AdminTab[]).includes(tab) && (
             <Phase300Suite section={tab as any} employees={employees} appointments={appointments} setAppointments={setAppointments} customers={customers} payments={payments} />
           )}
 
