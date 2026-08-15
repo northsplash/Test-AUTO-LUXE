@@ -13,6 +13,7 @@ import { signOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
 import { money } from '@/lib/data';
+import { sendCommunication } from '@/lib/communications';
 import BusinessSuite, { BusinessSection } from './BusinessSuite';
 import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
 import OperationsExpansion, { ExpansionSection } from './OperationsExpansion';
@@ -81,7 +82,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<AdminTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [navGroupsOpen,setNavGroupsOpen]=useState<Record<string,boolean>>({core:true,customers:true,people:false,field:false,money:false,operations:false,system:false});
+  const [navGroupsOpen,setNavGroupsOpen]=useState<Record<string,boolean>>({core:true,customers:false,people:false,field:false,money:false,operations:false,system:false});
 
   const [customers, setCustomers] = useState<Profile[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -193,8 +194,13 @@ const [availabilityForm, setAvailabilityForm] = useState({
   };
 
   const handleUpdateAptStatus = async (id: string, status: string) => {
-    await supabase.from('appointments').update({ status, ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}) }).eq('id', id);
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
+    const current = appointments.find(a => a.id === id);
+    const { data, error } = await supabase.from('appointments').update({ status, ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}) }).eq('id', id).select().single();
+    if (error) return alert(error.message);
+    setAppointments(prev => prev.map(a => a.id === id ? data : a));
+    const email = data?.customer_email || current?.customer_email;
+    const event = status === 'confirmed' ? 'booking_confirmed' : status === 'cancelled' ? 'appointment_cancelled' : status === 'completed' ? 'job_completed' : null;
+    if (event && email) sendCommunication(event, { appointment_id:id, recipient_email:email, variables:{ customer_name:data?.customer_name||current?.customer_name||'Customer', service_name:data?.service_name||current?.service_name||'Detailing service', appointment_time:data?.scheduled_at?new Date(data.scheduled_at).toLocaleString():'' } }).catch(console.warn);
   };
 
 const handleArchiveAppointment = async (id: string) => {
@@ -383,7 +389,7 @@ const handleDeleteAvailability = async (id: string) => {
         </div>
 
         <nav className="sidebar-nav grouped-sidebar">
-          {navGroups.map(g=><div className="nav-group" key={g.id}><button className="nav-group-title" onClick={()=>setNavGroupsOpen(p=>({...p,[g.id]:!p[g.id]}))}><span>{g.label}</span><ChevronUp size={14} className={navGroupsOpen[g.id]?'':'nav-chevron-closed'}/></button>{navGroupsOpen[g.id]&&g.items.map(id=>{const item=navItems.find(n=>n.id===id);if(!item)return null;const {label,Icon}=item;return <button key={id} className={`sidebar-item ${tab===id?'sidebar-active':''}`} onClick={()=>{setTab(id as AdminTab);setSidebarOpen(false)}}><Icon size={18}/>{label}</button>})}</div>)}
+          {navGroups.map(g=><div className="nav-group" key={g.id}><button className="nav-group-title" onClick={()=>setNavGroupsOpen(p=>Object.fromEntries(navGroups.map(x=>[x.id,x.id===g.id?!p[g.id]:false])))}><span>{g.label}</span><ChevronUp size={14} className={navGroupsOpen[g.id]?'':'nav-chevron-closed'}/></button>{navGroupsOpen[g.id]&&g.items.map(id=>{const item=navItems.find(n=>n.id===id);if(!item)return null;const {label,Icon}=item;return <button key={id} className={`sidebar-item ${tab===id?'sidebar-active':''}`} onClick={()=>{setTab(id as AdminTab);setSidebarOpen(false)}}><Icon size={18}/>{label}</button>})}</div>)}
         </nav>
 
         <div className="sidebar-footer">
