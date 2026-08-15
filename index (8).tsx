@@ -1,317 +1,718 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Award, BarChart3, ChevronDown, Clock3, Crosshair, DollarSign, Gauge,
-  History, ListChecks, LogOut, MapPin, Menu, Navigation, Pause, Phone,
-  Play, Plus, RefreshCw, Route, Search, Target, TrendingUp, UserRound,
-  WifiOff, X,
+  ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
+  Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { signOut } from '@/lib/auth';
+import { Navigation } from '@/components/Navigation';
+import { Footer } from '@/components/Footer';
+import { useScrollAnimation } from '@/hooks/useScrollAnimation';
+import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import type {
-  D2DDailyGoal, Employee, Lead, LeadTerritory, SalesRecord, TerritoryDoor,
-  TerritoryDoorHistory, TerritoryRoute, TimeEntry,
-} from '@/lib/supabase';
-import { money } from '@/lib/data';
-import FieldTerritoryMap from '@/components/FieldTerritoryMap';
-import TrainingPortal from '@/components/TrainingPortal';
-import {
-  APPOINTMENT_STATUSES, CONTACTED_STATUSES, DOOR_STATUSES, REVISIT_STATUSES,
-  SOLD_STATUSES, doorStatus, haversineMeters, localDateTime, optimizeWalkingRoute,
-  percent, sameLocalDay,
-} from '@/lib/fieldOps';
-import { sendCommunication } from '@/lib/communications';
+import { trackPageView } from '@/lib/auth';
 
-type Tab='territory'|'route'|'leads'|'followups'|'performance'|'timeclock'|'training';
-type LiveLocation={latitude:number;longitude:number;accuracy?:number|null};
-type OfflineAction={id:string;type:'save_lead'|'door_status';payload:any;created_at:string};
-const OFFLINE_KEY='ns_d2d_offline_queue_v2';
-const STATUS_QUICK=['no_answer','revisit','interested','follow_up','estimate','appointment_set','sold','do_not_knock'] as const;
+type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
-const emptyForm=()=>({
-  customer_name:'',address:'',phone:'',email:'',status:'unworked',service_interest:'',vehicle_info:'',
-  estimated_value:'',follow_up_at:'',notes:'',appointment_at:'',
-});
+const TABS: { id: TabId; label: string; Icon: any }[] = [
+  { id: 'services', label: 'Services', Icon: Car },
+  { id: 'packages', label: 'Packages', Icon: Package },
+  { id: 'protection', label: 'Protection', Icon: Gem },
+  { id: 'gallery', label: 'Gallery', Icon: Camera },
+  { id: 'membership', label: 'Membership', Icon: Crown },
+  { id: 'booking', label: 'Book', Icon: Calendar },
+  { id: 'faq', label: 'FAQ', Icon: HelpCircle },
+];
 
-export default function D2DPortal(){
-  const {user,profile,loading}=useAuth();
-  const navigate=useNavigate();
-  const [tab,setTab]=useState<Tab>('territory');
-  const [sidebar,setSidebar]=useState(false);
-  const [groups,setGroups]=useState<Record<string,boolean>>({field:true,performance:true,account:false});
-  const [employee,setEmployee]=useState<Employee|null>(null);
-  const [leads,setLeads]=useState<Lead[]>([]);
-  const [territories,setTerritories]=useState<LeadTerritory[]>([]);
-  const [doors,setDoors]=useState<TerritoryDoor[]>([]);
-  const [sales,setSales]=useState<SalesRecord[]>([]);
-  const [times,setTimes]=useState<TimeEntry[]>([]);
-  const [goals,setGoals]=useState<D2DDailyGoal|null>(null);
-  const [route,setRoute]=useState<TerritoryRoute|null>(null);
-  const [routeDoorIds,setRouteDoorIds]=useState<string[]>([]);
-  const [selectedTerritory,setSelectedTerritory]=useState<string>('');
-  const [selectedDoor,setSelectedDoor]=useState<(Partial<TerritoryDoor>&{lead_id?:string|null})|null>(null);
-  const [history,setHistory]=useState<TerritoryDoorHistory[]>([]);
-  const [form,setForm]=useState(emptyForm());
-  const [manual,setManual]=useState(false);
-  const [live,setLive]=useState<LiveLocation|null>(null);
-  const [online,setOnline]=useState(navigator.onLine);
-  const [offlineCount,setOfflineCount]=useState(loadOffline().length);
-  const [busy,setBusy]=useState(true);
-  const [saving,setSaving]=useState(false);
-  const [search,setSearch]=useState('');
-  const [filters,setFilters]=useState<string[]>([]);
-  const [showLabels,setShowLabels]=useState(false);
-  const lastLocationWrite=useRef(0);
+function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useScrollAnimation();
+  return (
+    <div
+      ref={ref as React.Ref<HTMLDivElement>}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'none' : 'translateY(32px)',
+        transition: `opacity 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
-  useEffect(()=>{
-    if(!loading&&(!user||!['d2d','owner'].includes(profile?.portal_role||'')))navigate('/portal');
-  },[user,profile,loading,navigate]);
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
+  const [serviceFilter, setServiceFilter] = useState('All');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState(1);
+  const [vehicle, setVehicle] = useState(0);
+  const [condition, setCondition] = useState('Light');
+  const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
+  const [formSent, setFormSent] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', notes: '' });
+  const [heroVisible, setHeroVisible] = useState(false);
+  const [counterVal, setCounterVal] = useState(0);
+  const tabRef = useRef<HTMLDivElement>(null);
 
-  const load=async()=>{
-    if(!user)return;
-    setBusy(true);
-    const {data:emp}=await supabase.from('employees').select('*').eq('user_id',user.id).maybeSingle();
-    setEmployee(emp);
-    if(!emp){setBusy(false);return;}
-    const [l,t,s,ti,g,r]=await Promise.all([
-      supabase.from('leads').select('*').eq('assigned_employee_id',emp.id).order('created_at',{ascending:false}),
-      supabase.from('lead_territories').select('*').eq('assigned_employee_id',emp.id).eq('status','active').order('priority',{ascending:false}),
-      supabase.from('sales_records').select('*').eq('employee_id',emp.id).order('sold_at',{ascending:false}),
-      supabase.from('time_entries').select('*').eq('employee_id',emp.id).order('clock_in',{ascending:false}).limit(60),
-      supabase.from('d2d_daily_goals').select('*').eq('employee_id',emp.id).eq('goal_date',new Date().toISOString().slice(0,10)).maybeSingle(),
-      supabase.from('territory_routes').select('*').eq('employee_id',emp.id).in('status',['active','paused']).order('started_at',{ascending:false}).limit(1).maybeSingle(),
-    ]);
-    setLeads(l.data??[]);setTerritories(t.data??[]);setSales(s.data??[]);setTimes(ti.data??[]);setGoals(g.data??null);setRoute(r.data??null);
-    const currentTerritory=selectedTerritory||(t.data?.[0]?.id??'');
-    setSelectedTerritory(currentTerritory);
-    const ids=(t.data??[]).map(x=>x.id);
-    if(ids.length){const d=await supabase.from('territory_doors').select('*').in('territory_id',ids);setDoors(d.data??[])}else setDoors([]);
-    if(r.data?.id){const rs=await supabase.from('territory_route_stops').select('*').eq('route_id',r.data.id).order('stop_order');setRouteDoorIds((rs.data??[]).filter(x=>x.status!=='completed').map(x=>x.door_id));}
-    setBusy(false);
-  };
-  useEffect(()=>{load()},[user]);
+  useEffect(() => {
+    setTimeout(() => setHeroVisible(true), 100);
+    trackPageView('/').catch(() => {});
+  }, []);
 
-  useEffect(()=>{
-    const onOnline=()=>{setOnline(true);syncOffline();};
-    const onOffline=()=>setOnline(false);
-    window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);
-    return()=>{window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline)};
-  },[employee]);
+  useEffect(() => {
+    if (heroVisible) {
+      const target = 500;
+      const duration = 2000;
+      const step = target / (duration / 16);
+      let current = 0;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        setCounterVal(Math.round(current));
+        if (current >= target) clearInterval(timer);
+      }, 16);
+      return () => clearInterval(timer);
+    }
+  }, [heroVisible]);
 
-  const openEntry=times.find(t=>!t.clock_out);
-  useEffect(()=>{
-    if(!employee||(!openEntry&&!route))return;
-    if(!navigator.geolocation)return;
-    const watch=navigator.geolocation.watchPosition(async p=>{
-      const loc={latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy};setLive(loc);
-      const now=Date.now();if(now-lastLocationWrite.current<90000)return;lastLocationWrite.current=now;
-      try{
-        await supabase.from('rep_locations').insert({employee_id:employee.id,latitude:loc.latitude,longitude:loc.longitude,accuracy_meters:loc.accuracy,captured_at:new Date().toISOString()});
-        if(route)await supabase.from('rep_work_sessions').update({last_latitude:loc.latitude,last_longitude:loc.longitude,last_location_at:new Date().toISOString()}).eq('employee_id',employee.id).eq('status','active');
-      }catch{/* field tracking should never interrupt work */}
-    },()=>{}, {enableHighAccuracy:true,maximumAge:30000,timeout:15000});
-    return()=>navigator.geolocation.clearWatch(watch);
-  },[employee?.id,Boolean(openEntry),route?.id]);
-
-  const territoryDoors=useMemo(()=>doors.filter(d=>!selectedTerritory||d.territory_id===selectedTerritory),[doors,selectedTerritory]);
-  const workedToday=useMemo(()=>territoryDoors.filter(d=>d.last_visited_at&&sameLocalDay(d.last_visited_at)),[territoryDoors]);
-  const contactsToday=workedToday.filter(d=>CONTACTED_STATUSES.has((d.status||'unworked') as any)).length;
-  const appointmentsToday=workedToday.filter(d=>APPOINTMENT_STATUSES.has((d.status||'unworked') as any)).length;
-  const salesToday=sales.filter(s=>sameLocalDay(s.sold_at)&&s.status==='completed');
-  const revenueToday=salesToday.reduce((n,s)=>n+Number(s.sale_amount||0),0);
-  const totalRevenue=sales.filter(s=>s.status==='completed').reduce((n,s)=>n+Number(s.sale_amount||0),0);
-  const commission=totalRevenue*Number(employee?.commission_rate||0)/100;
-  const weekBase=Number(employee?.weekly_base||0);
-  const territoryProgress=percent(territoryDoors.filter(d=>d.status!=='unworked').length,territoryDoors.length);
-  const currentStreet=selectedDoor?.address?.replace(/^\d+\s+/,'').split(',')[0]||'';
-  const streetDoors=currentStreet?territoryDoors.filter(d=>(d.address||'').replace(/^\d+\s+/,'').split(',')[0]===currentStreet):[];
-  const streetProgress=percent(streetDoors.filter(d=>d.status!=='unworked').length,streetDoors.length);
-
-  const lookupAddress=async(lat:number,lng:number)=>{
-    try{
-      const {data,error}=await supabase.functions.invoke('geocode',{body:{latitude:lat,longitude:lng}});
-      if(!error&&data?.address)return data;
-    }catch{/* fallback below */}
-    try{
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,{headers:{'Accept-Language':'en-US,en'}});
-      if(!r.ok)return null;const d=await r.json();const a=d.address||{};const street=[a.house_number,a.road||a.residential||a.pedestrian].filter(Boolean).join(' ');const city=a.city||a.town||a.village||'';const state=a.state||'';const postal_code=a.postcode||'';return{address:[street,[city,state,postal_code].filter(Boolean).join(', ').replace(/, ([0-9]{5})$/,' $1')].filter(Boolean).join(', ')||d.display_name,street,house_number:a.house_number||'',city,state,postal_code};
-    }catch{return null}
-  };
-
-  const pickDoor=async(door:any)=>{
-    const lead=door.lead_id?leads.find(l=>l.id===door.lead_id):null;
-    setSelectedDoor(door);setManual(false);setHistory([]);
-    let address=lead?.address||door.address||'';
-    setForm({customer_name:lead?.customer_name||'',address,phone:lead?.phone||'',email:lead?.email||'',status:lead?.status||door.status||'unworked',service_interest:lead?.service_interest||'',vehicle_info:lead?.vehicle_info||'',estimated_value:String(lead?.estimated_value||''),follow_up_at:lead?.follow_up_at?.slice(0,16)||'',notes:lead?.notes||door.notes||'',appointment_at:''});
-    if(door.id){const h=await supabase.from('territory_door_history').select('*').eq('door_id',door.id).order('created_at',{ascending:false}).limit(20);setHistory(h.data??[])}
-    if(!address&&Number.isFinite(Number(door.latitude))&&Number.isFinite(Number(door.longitude))){
-      const geo=await lookupAddress(Number(door.latitude),Number(door.longitude));address=geo?.address||'';
-      if(address){setForm(p=>({...p,address}));if(door.id){const patch={address,street_name:geo?.street||null,house_number:geo?.house_number||null,city:geo?.city||null,state:geo?.state||null,postal_code:geo?.postal_code||null};await supabase.from('territory_doors').update(patch).eq('id',door.id);setDoors(p=>p.map(x=>x.id===door.id?{...x,...patch}:x));}}
+  const scrollTo = (id: string) => {
+    if (id === 'booking') {
+      setActiveTab('booking');
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else if (id === 'contact') {
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setActiveTab(id as TabId);
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
 
-  const pickMapPoint=async(lat:number,lng:number)=>{
-    setManual(true);setSelectedDoor({latitude:lat,longitude:lng,territory_id:null});setHistory([]);setForm({...emptyForm(),address:'Locating address…'});
-    const geo=await lookupAddress(lat,lng);setForm(p=>({...p,address:geo?.address||''}));
+  const estimated = useMemo(() => {
+    const base = PACKAGES[selectedPackage].price;
+    const size = VEHICLE_SIZES[vehicle].extra;
+    const condExtra = condition === 'Moderate' ? 35 : condition === 'Heavy' ? 75 : condition === 'Severe' ? 125 : 0;
+    const extras = selectedAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
+    return base + size + condExtra + extras;
+  }, [selectedPackage, vehicle, condition, selectedAddOns]);
+
+  const toggleAddOn = (i: number) => {
+    setSelectedAddOns(c => c.includes(i) ? c.filter(x => x !== i) : [...c, i]);
   };
 
-  const checkDuplicate=async()=>{
-    const phone=form.phone.replace(/\D/g,'').slice(-10);const address=form.address.trim().toLowerCase().replace(/\s+/g,' ');
-    if(!phone&&!address)return null;
-    let query=supabase.from('leads').select('id,customer_name,address,phone,status,assigned_employee_id').limit(5);
-    if(phone)query=query.eq('normalized_phone',phone);else query=query.eq('normalized_address',address);
-    const {data}=await query;return(data??[]).filter((x:any)=>x.id!==selectedDoor?.lead_id);
+  const filtered = serviceFilter === 'All' ? SERVICES : SERVICES.filter(s => s.category === serviceFilter);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await supabase.from('appointments').insert({
+      service_name: PACKAGES[selectedPackage].name,
+      package_name: PACKAGES[selectedPackage].name,
+      add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
+      vehicle_info: formData.vehicle,
+      price: estimated,
+      notes: formData.notes,
+      status: 'pending',
+    }).catch(() => {});
+    setFormSent(true);
   };
 
-  const queueOffline=(action:OfflineAction)=>{const q=loadOffline();q.push(action);localStorage.setItem(OFFLINE_KEY,JSON.stringify(q));setOfflineCount(q.length)};
-  const syncOffline=async()=>{
-    if(!employee||!navigator.onLine)return;const q=loadOffline();if(!q.length)return;
-    const remaining:OfflineAction[]=[];
-    for(const item of q){try{if(item.type==='save_lead'){const {error}=await supabase.from('leads').upsert(item.payload,{onConflict:'id'});if(error)throw error}else if(item.type==='door_status'){const {error}=await supabase.from('territory_doors').update(item.payload.patch).eq('id',item.payload.id);if(error)throw error}}catch{remaining.push(item)}}
-    localStorage.setItem(OFFLINE_KEY,JSON.stringify(remaining));setOfflineCount(remaining.length);if(remaining.length!==q.length)await load();
+  const openTab = (tab: TabId) => {
+    setActiveTab(tab);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   };
 
-  const saveLead=async(e?:React.FormEvent,forcedStatus?:string)=>{
-    e?.preventDefault();if(!employee||!selectedDoor)return;setSaving(true);
-    const nextStatus=forcedStatus||form.status||'unworked';
-    const duplicates=await checkDuplicate();if(duplicates?.length&&!window.confirm(`Possible duplicate lead found: ${duplicates[0].customer_name||duplicates[0].address||duplicates[0].phone}. Save anyway?`)){setSaving(false);return;}
-    const territory_id=selectedDoor.territory_id||(!manual?selectedTerritory:null)||null;
-    const payload:any={
-      ...(selectedDoor.lead_id?{id:selectedDoor.lead_id}:{}),assigned_employee_id:employee.id,territory_id,territory_door_id:selectedDoor.id||null,
-      customer_name:form.customer_name||null,address:form.address||null,phone:form.phone||null,email:form.email||null,status:nextStatus,
-      service_interest:form.service_interest||null,vehicle_info:form.vehicle_info||null,estimated_value:Number(form.estimated_value||0),
-      follow_up_at:form.follow_up_at?new Date(form.follow_up_at).toISOString():null,notes:form.notes||null,
-      latitude:selectedDoor.latitude??null,longitude:selectedDoor.longitude??null,last_contacted_at:new Date().toISOString(),
-      next_action:nextStatus==='follow_up'?'follow_up':nextStatus==='estimate'?'send_estimate':nextStatus==='appointment_set'?'appointment':null,
-      next_action_at:form.follow_up_at?new Date(form.follow_up_at).toISOString():null,
-    };
-    try{
-      if(!navigator.onLine)throw new Error('offline');
-      let saved:any;
-      if(selectedDoor.lead_id){const r=await supabase.from('leads').update(payload).eq('id',selectedDoor.lead_id).select().single();if(r.error)throw r.error;saved=r.data;setLeads(p=>p.map(x=>x.id===saved.id?saved:x));}
-      else{const r=await supabase.from('leads').insert(payload).select().single();if(r.error)throw r.error;saved=r.data;setLeads(p=>[saved,...p]);}
-      if(selectedDoor.id){
-        const patch:any={lead_id:saved.id,status:nextStatus,last_visited_at:new Date().toISOString(),last_employee_id:employee.id,notes:form.notes,next_follow_up_at:form.follow_up_at?new Date(form.follow_up_at).toISOString():null,...(nextStatus==='do_not_knock'?{do_not_knock:true}:{})};
-        const d=await supabase.from('territory_doors').update(patch).eq('id',selectedDoor.id).select().single();if(d.error)throw d.error;setDoors(p=>p.map(x=>x.id===selectedDoor.id?d.data:x));
-        if(route?.id){await supabase.from('territory_route_stops').update({status:'completed',completed_at:new Date().toISOString()}).eq('route_id',route.id).eq('door_id',selectedDoor.id);setRouteDoorIds(p=>p.filter(id=>id!==selectedDoor.id));}
-      }
-      if(nextStatus==='appointment_set'&&form.appointment_at)await createAppointment(saved);
-      setSelectedDoor(null);setManual(false);setHistory([]);setSaving(false);
-    }catch(error:any){
-      if(!navigator.onLine||String(error?.message||'').toLowerCase().includes('network')){
-        queueOffline({id:crypto.randomUUID(),type:'save_lead',payload:{...payload,id:payload.id||crypto.randomUUID()},created_at:new Date().toISOString()});
-        if(selectedDoor.id)queueOffline({id:crypto.randomUUID(),type:'door_status',payload:{id:selectedDoor.id,patch:{status:nextStatus,last_visited_at:new Date().toISOString(),last_employee_id:employee.id,notes:form.notes}},created_at:new Date().toISOString()});
-        alert('Saved offline. North Splash will sync this lead when your connection returns.');setSelectedDoor(null);setManual(false);
-      }else alert(error?.message||'Unable to save lead.');setSaving(false);
-    }
+  const closeTab = () => {
+    setActiveTab(null);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
-  const createEstimate=async()=>{
-    if(!employee||!selectedDoor)return;let lead=selectedDoor.lead_id?leads.find(l=>l.id===selectedDoor.lead_id):null;
-    if(!lead){await saveLead(undefined,'estimate');return alert('Lead saved. Reopen the house and create the estimate.');}
-    const amount=Number(form.estimated_value||lead.estimated_value||0);const {data,error}=await supabase.from('customer_estimates').insert({lead_id:lead.id,employee_id:employee.id,sales_rep_employee_id:employee.id,amount,subtotal:amount,total:amount,status:'draft',line_items:[{name:form.service_interest||'Detailing service',quantity:1,price:amount}],notes:form.notes}).select().single();if(error)return alert(error.message);
-    await supabase.from('leads').update({status:'estimate',estimate_id:data.id}).eq('id',lead.id);setLeads(p=>p.map(x=>x.id===lead!.id?{...x,status:'estimate',estimate_id:data.id}:x));setForm(p=>({...p,status:'estimate'}));alert('Estimate created. It is now attached to this lead.');
-  };
+  return (
+    <div className="site">
+      <Navigation onScrollTo={scrollTo} isHomePage />
 
-  const createAppointment=async(lead:Lead)=>{
-    if(!employee||!form.appointment_at)return;
-    const {data,error}=await supabase.from('appointments').insert({
-      user_id:lead.converted_customer_id||null,customer_name:form.customer_name||lead.customer_name,customer_email:form.email||lead.email,customer_phone:form.phone||lead.phone,
-      service_name:form.service_interest||lead.service_interest||'Detailing Service',package_name:form.service_interest||lead.service_interest||null,add_ons:[],vehicle_info:form.vehicle_info||lead.vehicle_info||'',
-      scheduled_at:new Date(form.appointment_at).toISOString(),status:'pending',price:Number(form.estimated_value||lead.estimated_value||0),notes:form.notes||lead.notes||'',
-      service_address:form.address||lead.address,latitude:selectedDoor?.latitude??lead.latitude,longitude:selectedDoor?.longitude??lead.longitude,
-      sales_rep_employee_id:employee.id,lead_id:lead.id,source_channel:'d2d',dispatch_status:'unassigned',field_status:'scheduled',
-    }).select().single();if(error)throw error;
-    await supabase.from('leads').update({status:'appointment_set',appointment_id:data.id}).eq('id',lead.id);
-    setLeads(p=>p.map(x=>x.id===lead.id?{...x,status:'appointment_set',appointment_id:data.id}:x));
-  };
+      {/* HERO */}
+      <section id="home" className="hero">
+        <div className="hero-bg">
+          <img src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+          <div className="hero-gradient" />
+          <div className="hero-noise" />
+        </div>
 
-  const startRoute=async()=>{
-    if(!employee||!selectedTerritory)return;const available=territoryDoors.filter(d=>!d.do_not_knock&&['unworked','no_answer','revisit','follow_up'].includes(d.status||'unworked'));
-    if(!available.length)return alert('No eligible houses remain in this territory.');
-    const start=live||{latitude:Number(territories.find(t=>t.id===selectedTerritory)?.center_lat||available[0].latitude),longitude:Number(territories.find(t=>t.id===selectedTerritory)?.center_lng||available[0].longitude)};
-    const ordered=optimizeWalkingRoute(start,available);let distance=0;let cursor=start;ordered.forEach(stop=>{distance+=haversineMeters(cursor,stop);cursor=stop});
-    if(route?.id)await supabase.from('territory_routes').update({status:'completed',ended_at:new Date().toISOString()}).eq('id',route.id);
-    const {data,error}=await supabase.from('territory_routes').insert({territory_id:selectedTerritory,employee_id:employee.id,status:'active',total_stops:ordered.length,distance_meters:Math.round(distance),start_latitude:start.latitude,start_longitude:start.longitude}).select().single();if(error)return alert(error.message);
-    const stops=ordered.map((d,i)=>({route_id:data.id,door_id:d.id,stop_order:i+1,status:'pending'}));if(stops.length){const r=await supabase.from('territory_route_stops').insert(stops);if(r.error)return alert(r.error.message)}
-    setRoute(data);setRouteDoorIds(ordered.map(d=>d.id));setTab('route');
-  };
-  const toggleRoute=async()=>{if(!route)return;const status=route.status==='paused'?'active':'paused';const patch=status==='paused'?{status,paused_at:new Date().toISOString()}:{status,paused_at:null};await supabase.from('territory_routes').update(patch).eq('id',route.id);setRoute({...route,...patch});};
-  const finishRoute=async()=>{if(!route)return;await supabase.from('territory_routes').update({status:'completed',ended_at:new Date().toISOString()}).eq('id',route.id);setRoute(null);setRouteDoorIds([]);};
-  const nextBest=()=>{const nextId=routeDoorIds[0];const door=nextId?doors.find(d=>d.id===nextId):optimizeWalkingRoute(live||territoryDoors[0]||{latitude:35.7796,longitude:-78.6382},territoryDoors.filter(d=>!d.do_not_knock&&['unworked','no_answer','revisit','follow_up'].includes(d.status||'unworked')))[0];if(door){pickDoor(door);setTab('territory')}else alert('No available house found.');};
+        <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>
+          <p className="eyebrow eyebrow-glow">PREMIUM AUTOMOTIVE CARE</p>
+          <h1 className="hero-title">
+            Elevate<br />
+            <em>Your Drive.</em>
+          </h1>
+          <p className="hero-copy">
+            A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
+          </p>
+          <div className="hero-actions">
+            <button className="btn-primary" onClick={() => scrollTo('booking')}>
+              Book Your Detail <ArrowRight size={16} />
+            </button>
+            <button className="btn-ghost" onClick={() => scrollTo('services')}>
+              Explore Services
+            </button>
+          </div>
 
-  const manualLead=()=>{setManual(true);setSelectedDoor({territory_id:null,latitude:live?.latitude,longitude:live?.longitude});setHistory([]);setForm(emptyForm())};
-  const useCurrentLocation=()=>navigator.geolocation?.getCurrentPosition(async p=>{const lat=p.coords.latitude,lng=p.coords.longitude;setSelectedDoor(d=>({...d,latitude:lat,longitude:lng}));const geo=await lookupAddress(lat,lng);if(geo?.address)setForm(f=>({...f,address:geo.address}))},()=>alert('Allow location access to pin this lead.'),{enableHighAccuracy:true});
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <strong>{counterVal}+</strong>
+              <span>Vehicles Detailed</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>5★</strong>
+              <span>Client Rating</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>3</strong>
+              <span>Coating Tiers</span>
+            </div>
+          </div>
+        </div>
 
-  const clock=async()=>{if(!employee)return;if(openEntry){const pos=await getPosition();const {data,error}=await supabase.from('time_entries').update({clock_out:new Date().toISOString(),clock_out_latitude:pos?.latitude??null,clock_out_longitude:pos?.longitude??null}).eq('id',openEntry.id).select().single();if(error)return alert(error.message);setTimes(p=>p.map(t=>t.id===openEntry.id?data:t));}
-    else{const pos=await getPosition();const {data,error}=await supabase.from('time_entries').insert({employee_id:employee.id,clock_in:new Date().toISOString(),clock_in_latitude:pos?.latitude??null,clock_in_longitude:pos?.longitude??null,status:'pending'}).select().single();if(error)return alert(error.message);setTimes(p=>[data,...p]);}};
+        <button className="hero-scroll" onClick={() => scrollTo('services')}>
+          <ChevronDown size={22} />
+        </button>
+      </section>
 
-  const logout=async()=>{await signOut().catch(()=>{});navigate('/')};
-  if(loading||busy)return <div className="portal-loading"><div className="portal-spinner"/><p>Loading D2D field system…</p></div>;
-  if(!employee)return <div className="portal-loading"><p>Your account is not linked to a D2D employee profile yet.</p><Link to="/">Home</Link></div>;
+      {/* INTRO */}
+      <section className="intro-section">
+        <FadeIn>
+          <p className="eyebrow">THE LUXE STANDARD</p>
+          <h2>Clean is the beginning.<br /><em>Exceptional is the goal.</em></h2>
+        </FadeIn>
+        <FadeIn delay={150} className="intro-right">
+          <p>North Splash Auto Luxe brings a premium mindset to automotive care. Every service is built around the condition of your vehicle, the finish you want, and the experience you expect.</p>
+          <div className="intro-pillars">
+            {[
+              [Sparkles, 'Precision Detail', 'Every panel, every surface'],
+              [Shield, 'Long-Term Protection', 'Ceramic & sealant options'],
+              [Star, 'White Glove Service', 'Concierge available'],
+              [Zap, 'Fast Turnaround', 'Most services same-day'],
+            ].map(([Icon, title, sub]) => (
+              <div className="intro-pillar" key={String(title)}>
+                <div className="pillar-icon"><Icon size={18} /></div>
+                <div>
+                  <strong>{String(title)}</strong>
+                  <span>{String(sub)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+      </section>
 
-  const nav:[Tab,string,any,string][]=[
-    ['territory','Territory',MapPin,'field'],['route','Route',Route,'field'],['leads','My Leads',Target,'field'],['followups','Follow-Ups',Navigation,'field'],
-    ['performance','Performance',BarChart3,'performance'],['timeclock','Time Clock',Clock3,'account'],['training','Training',Award,'account'],
-  ];
-  const filteredLeads=leads.filter(l=>!search||`${l.customer_name||''} ${l.address||''} ${l.phone||''} ${l.service_interest||''}`.toLowerCase().includes(search.toLowerCase()));
-  const dueFollowups=leads.filter(l=>l.status==='follow_up'||(l.follow_up_at&&new Date(l.follow_up_at)<=new Date()));
-
-  return <div className="portal-layout d2d-os">
-    <aside className={`portal-sidebar ${sidebar?'sidebar-open':''}`}>
-      <div className="sidebar-header"><Link to="/" className="sidebar-brand"><div className="brand-mark brand-mark-sm">NS</div><div><strong>D2D SALES</strong><small>NORTH SPLASH</small></div></Link><button className="sidebar-close" onClick={()=>setSidebar(false)}><X size={18}/></button></div>
-      <div className="sidebar-user"><div className="sidebar-avatar">{employee.name[0]}</div><div><p>{employee.name}</p><span>Level {employee.employment_level||1} · {employee.commission_rate}%</span></div></div>
-      <nav className="sidebar-nav">{[['field','Field Work'],['performance','Results'],['account','My Account']].map(([id,label])=><div className="nav-group" key={id}><button className="nav-group-title" onClick={()=>setGroups(p=>({...p,[id]:!p[id]}))}>{label}<ChevronDown size={14} className={groups[id]?'nav-chevron-open':''}/></button>{groups[id]&&nav.filter(n=>n[3]===id).map(([tid,l,Icon])=><button key={tid} className={`sidebar-item ${tab===tid?'sidebar-active':''}`} onClick={()=>{setTab(tid);setSidebar(false)}}><Icon size={18}/>{l}{tid==='followups'&&dueFollowups.length>0&&<span className="nav-count">{dueFollowups.length}</span>}</button>)}</div>)}</nav>
-      <div className="sidebar-footer"><div className={`connection-pill ${online?'online':'offline'}`}>{online?'Online':'Offline'}{offlineCount>0&&` · ${offlineCount} queued`}</div><button className="sidebar-item sidebar-signout" onClick={logout}><LogOut size={18}/>Sign Out</button></div>
-    </aside>
-    {sidebar&&<div className="sidebar-backdrop" onClick={()=>setSidebar(false)}/>}<main className="portal-main">
-      <div className="portal-topbar"><button className="sidebar-toggle" onClick={()=>setSidebar(true)}><Menu size={20}/></button><div className="topbar-title"><h1>{nav.find(n=>n[0]===tab)?.[1]}</h1><span>{territories.find(t=>t.id===selectedTerritory)?.name||'No territory assigned'}</span></div><div className="topbar-actions">{offlineCount>0&&<button className="btn-outline" onClick={syncOffline}><RefreshCw size={15}/> Sync {offlineCount}</button>}</div></div>
-      <div className="portal-content">
-        {tab==='territory'&&<div className="tab-content d2d-field-page">
-          <div className="d2d-kpi-strip"><Kpi label="Territory" value={`${territoryProgress}%`} detail={`${territoryDoors.filter(d=>d.status!=='unworked').length}/${territoryDoors.length} worked`}/><Kpi label="Doors Today" value={String(workedToday.length)} detail={`Goal ${goals?.door_goal??50}`}/><Kpi label="Contacts" value={String(contactsToday)} detail={`Goal ${goals?.contact_goal??15}`}/><Kpi label="Appointments" value={String(appointmentsToday)} detail={`Goal ${goals?.appointment_goal??4}`}/><Kpi label="Revenue" value={money(revenueToday)} detail={`Goal ${money(Number(goals?.revenue_goal??1500))}`}/></div>
-          <div className="d2d-field-toolbar"><div className="d2d-territory-select"><label>Territory</label><select value={selectedTerritory} onChange={e=>{setSelectedTerritory(e.target.value);setSelectedDoor(null)}}>{territories.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}</select></div><div className="d2d-field-actions"><button className="btn-outline" onClick={()=>setShowLabels(v=>!v)}>{showLabels?'Hide Labels':'House Labels'}</button><button className="btn-outline" onClick={nextBest}><Target size={15}/> Next Best</button><button className="btn-primary" onClick={startRoute}><Play size={15}/> Start Optimized Route</button><button className="btn-outline" onClick={manualLead}><Plus size={15}/> Manual Lead</button></div></div>
-          <div className="d2d-filter-row">{DOOR_STATUSES.filter(x=>['unworked','no_answer','revisit','interested','follow_up','estimate','appointment_set','sold','do_not_knock'].includes(x.key)).map(s=><button key={s.key} className={filters.includes(s.key)?'status-filter active':'status-filter'} onClick={()=>setFilters(p=>p.includes(s.key)?p.filter(x=>x!==s.key):[...p,s.key])}><i style={{background:s.color}}/>{s.short}</button>)}</div>
-          {!territories.length?<div className="ns-empty">No territory is assigned to your account yet.</div>:<FieldTerritoryMap territories={territories.filter(t=>!selectedTerritory||t.id===selectedTerritory)} doors={territoryDoors} leads={leads.filter(l=>!selectedTerritory||l.territory_id===selectedTerritory)} liveLocation={live} routeDoorIds={routeDoorIds} activeDoorId={selectedDoor?.id||null} statusFilter={filters} showDoorLabels={showLabels} onDoorClick={pickDoor} onMapClick={pickMapPoint}/>} 
-          <div className="territory-bottom-stats"><span><strong>{territoryProgress}%</strong> territory complete</span>{currentStreet&&<span><strong>{streetProgress}%</strong> {currentStreet}</span>}<span><strong>{dueFollowups.length}</strong> follow-ups due</span>{!online&&<span><WifiOff size={14}/> Offline mode</span>}</div>
-        </div>}
-
-        {tab==='route'&&<div className="tab-content"><div className="route-hero"><div><span className="eyebrow">FIELD ROUTE</span><h2>{route?route.status==='paused'?'Route Paused':'Route Active':'No Active Route'}</h2><p>{route?`${routeDoorIds.length} stops remaining`:'Start an optimized route from the Territory screen.'}</p></div>{route&&<div className="route-actions"><button className="btn-outline" onClick={toggleRoute}>{route.status==='paused'?<Play size={15}/>:<Pause size={15}/>} {route.status==='paused'?'Resume':'Pause'}</button><button className="btn-primary" onClick={nextBest}><Navigation size={15}/> Next Stop</button><button className="btn-outline" onClick={finishRoute}>Finish Route</button></div>}</div>{route&&<><FieldTerritoryMap territories={territories.filter(t=>t.id===route.territory_id)} doors={doors.filter(d=>d.territory_id===route.territory_id)} liveLocation={live} routeDoorIds={routeDoorIds} onDoorClick={pickDoor}/><div className="route-stop-list">{routeDoorIds.slice(0,12).map((id,i)=>{const d=doors.find(x=>x.id===id);return d?<button key={id} onClick={()=>pickDoor(d)}><span>{i+1}</span><div><strong>{d.address||'Address pending'}</strong><small>{doorStatus(d.status).label}</small></div><Navigation size={16}/></button>:null})}</div></>}</div>}
-
-        {tab==='leads'&&<div className="tab-content"><div className="list-toolbar"><div className="search-box"><Search size={16}/><input placeholder="Search name, address, phone or service" value={search} onChange={e=>setSearch(e.target.value)}/></div><button className="btn-primary" onClick={manualLead}><Plus size={15}/> Add Lead</button></div><div className="lead-table-cards">{filteredLeads.map(l=><button className="lead-row-card" key={l.id} onClick={()=>pickDoor({id:l.territory_door_id||undefined,lead_id:l.id,latitude:Number(l.latitude||0),longitude:Number(l.longitude||0),address:l.address,territory_id:l.territory_id,status:l.status})}><div className="lead-status-dot" style={{background:doorStatus(l.status).color}}/><div className="lead-row-main"><strong>{l.customer_name||l.address||'Unnamed Lead'}</strong><span>{l.address||'No address'} · {l.service_interest||'Service not selected'}</span></div><div className="lead-row-value"><strong>{money(Number(l.estimated_value||0))}</strong><span>{doorStatus(l.status).label}</span></div></button>)}{!filteredLeads.length&&<div className="ns-empty">No matching leads.</div>}</div></div>}
-
-        {tab==='followups'&&<div className="tab-content"><div className="tab-header"><div><h2>Follow-Up Queue</h2><p>Highest-priority callbacks and revisits first.</p></div></div><div className="followup-grid">{dueFollowups.sort((a,b)=>new Date(a.follow_up_at||0).getTime()-new Date(b.follow_up_at||0).getTime()).map(l=><div className="followup-card" key={l.id}><div><span className="eyebrow">{l.follow_up_at&&new Date(l.follow_up_at)<new Date()?'OVERDUE':'FOLLOW UP'}</span><h3>{l.customer_name||l.address}</h3><p>{l.address}</p></div><div className="followup-meta"><span>{l.follow_up_at?localDateTime(l.follow_up_at):'No date set'}</span><strong>{money(Number(l.estimated_value||0))}</strong></div><div className="followup-actions">{l.phone&&<a className="btn-outline" href={`tel:${l.phone}`}><Phone size={14}/> Call</a>}<button className="btn-primary" onClick={()=>pickDoor({id:l.territory_door_id||undefined,lead_id:l.id,latitude:Number(l.latitude||0),longitude:Number(l.longitude||0),address:l.address,territory_id:l.territory_id,status:l.status})}>Open Lead</button></div></div>)}{!dueFollowups.length&&<div className="ns-empty">You're caught up. No follow-ups are due.</div>}</div></div>}
-
-        {tab==='performance'&&<div className="tab-content"><div className="performance-hero"><div><span className="eyebrow">YOUR RESULTS</span><h2>{money(totalRevenue)} completed revenue</h2><p>Commission is earned from completed/collected sales.</p></div><TrendingUp size={36}/></div><div className="d2d-kpi-strip"><Kpi label="Commission" value={money(commission)}/><Kpi label="Weekly Base" value={money(weekBase)}/><Kpi label="Estimated Pay" value={money(weekBase+commission)}/><Kpi label="Contact Rate" value={`${percent(contactsToday,workedToday.length)}%`}/><Kpi label="Appointment Rate" value={`${percent(appointmentsToday,contactsToday)}%`}/></div><div className="performance-grid"><div className="performance-card"><Gauge/><h3>Today's Goals</h3><Goal label="Doors" value={workedToday.length} goal={goals?.door_goal??50}/><Goal label="Contacts" value={contactsToday} goal={goals?.contact_goal??15}/><Goal label="Appointments" value={appointmentsToday} goal={goals?.appointment_goal??4}/><Goal label="Revenue" value={revenueToday} goal={Number(goals?.revenue_goal??1500)} moneyMode/></div><div className="performance-card"><DollarSign/><h3>Recent Sales</h3>{sales.slice(0,8).map(s=><div className="performance-line" key={s.id}><span>{s.customer_name||s.service_name}</span><strong>{money(Number(s.sale_amount||0))}</strong></div>)}{!sales.length&&<p>No completed sales yet.</p>}</div></div></div>}
-
-        {tab==='timeclock'&&<div className="tab-content"><div className="clock-card"><div className={`clock-status ${openEntry?'active':''}`}><Clock3/><span>{openEntry?'CLOCKED IN':'OFF THE CLOCK'}</span></div><h2>{openEntry?`Started ${new Date(openEntry.clock_in).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'Ready to work?'}</h2><p>Location is recorded only for company field operations while you're actively working.</p><button className="btn-primary btn-full" onClick={clock}>{openEntry?'Clock Out':'Clock In'}</button></div><div className="timecard-list">{times.slice(0,12).map(t=><div key={t.id}><strong>{new Date(t.clock_in).toLocaleDateString()}</strong><span>{new Date(t.clock_in).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {t.clock_out?new Date(t.clock_out).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Open'}</span><em>{t.status}</em></div>)}</div></div>}
-
-        {tab==='training'&&<div className="tab-content"><TrainingPortal employee={employee}/></div>}
+      {/* TAB NAVIGATION */}
+      <div className="tab-nav-wrap" ref={tabRef}>
+        <div className="tab-nav">
+          {TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              className={`tab-nav-btn ${activeTab === id ? 'tab-nav-active' : ''}`}
+              onClick={() => openTab(id)}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
+        </div>
       </div>
-    </main>
 
-    {(selectedDoor||manual)&&<HouseDrawer door={selectedDoor} form={form} setForm={setForm} history={history} manual={manual} saving={saving} onClose={()=>{setSelectedDoor(null);setManual(false);setHistory([])}} onSave={saveLead} onEstimate={createEstimate} onLocation={useCurrentLocation}/>} 
-  </div>;
+      {/* TEASER CARDS (shown when no tab is active) */}
+      {activeTab === null && (
+        <section className="teasers-section">
+          <FadeIn className="center-heading">
+            <p className="eyebrow">EXPLORE</p>
+            <h2>Everything your vehicle deserves.</h2>
+            <p>Tap any section to dive deeper. Book when you're ready.</p>
+          </FadeIn>
+
+          <div className="teaser-grid">
+            {/* Services teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[0].image} alt="Services" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Car size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">SERVICES</p>
+                <h3>Care without shortcuts</h3>
+                <p>From exterior refresh to full paint transformation. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
+                <button className="teaser-link" onClick={() => openTab('services')}>
+                  View services <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Packages teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[2].image} alt="Packages" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Package size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">PACKAGES</p>
+                <h3>Choose your level of Luxe</h3>
+                <p>Three signature packages from {money(PACKAGES[0].price)} to {money(PACKAGES[2].price)}. Simple pricing, premium results.</p>
+                <button className="teaser-link" onClick={() => openTab('packages')}>
+                  Compare packages <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Protection teaser */}
+            <FadeIn className="teaser-card" delay={160}>
+              <div className="teaser-img">
+                <img src={SERVICES[4].image} alt="Protection" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Gem size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">PROTECTION</p>
+                <h3>Built to protect</h3>
+                <p>Ceramic coating in 1, 3, and 5-year tiers. Hydrophobic protection with deeper gloss.</p>
+                <button className="teaser-link" onClick={() => openTab('protection')}>
+                  Explore protection <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Gallery teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[3].image} alt="Gallery" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Camera size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">GALLERY</p>
+                <h3>Made to be seen</h3>
+                <p>Premium vehicles. Precise finishes. The details that change the whole look.</p>
+                <button className="teaser-link" onClick={() => openTab('gallery')}>
+                  View gallery <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Membership teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[1].image} alt="Membership" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Crown size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">MEMBERSHIP</p>
+                <h3>Don't wait until it needs rescuing</h3>
+                <p>Three maintenance plans from {money(MEMBERSHIPS[0].price)}/mo to {money(MEMBERSHIPS[2].price)}/mo. Consistency pays.</p>
+                <button className="teaser-link" onClick={() => openTab('membership')}>
+                  See plans <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Booking teaser */}
+            <FadeIn className="teaser-card teaser-cta" delay={160}>
+              <div className="teaser-body teaser-body-cta">
+                <p className="eyebrow">BOOK NOW</p>
+                <h3>Get an instant estimate</h3>
+                <p>Build your service, pick your add-ons, and request your appointment in minutes.</p>
+                <button className="btn-primary" onClick={() => openTab('booking')}>
+                  Book Your Detail <ArrowRight size={14} />
+                </button>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+      )}
+
+      {/* TAB CONTENT */}
+      {activeTab !== null && (
+        <section className="tab-content-section">
+          <div className="tab-content-header">
+            <button className="tab-back" onClick={closeTab}>
+              <ArrowLeft size={16} /> Back to overview
+            </button>
+            <h2>{TABS.find(t => t.id === activeTab)?.label}</h2>
+          </div>
+
+          {/* SERVICES TAB */}
+          {activeTab === 'services' && (
+            <div className="tab-panel">
+              <FadeIn className="section-header dark-header">
+                <div>
+                  <p className="eyebrow eyebrow-dim">SERVICES</p>
+                  <h2>Care without shortcuts.</h2>
+                </div>
+                <p>From a polished daily driver to a full paint transformation.</p>
+              </FadeIn>
+              <div className="filter-row">
+                {['All', 'Detail', 'Paint', 'Ceramic'].map(f => (
+                  <button key={f} className={`filter-btn ${serviceFilter === f ? 'filter-active' : ''}`} onClick={() => setServiceFilter(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="service-grid">
+                {filtered.map((s, i) => (
+                  <FadeIn key={s.title} delay={i * 80} className="service-card">
+                    <div className="service-img">
+                      <img src={s.image} alt={s.title} />
+                      <div className="service-img-overlay" />
+                      <span className="service-badge">{s.category}</span>
+                    </div>
+                    <div className="service-body">
+                      <div className="service-top">
+                        <h3>{s.title}</h3>
+                        <strong className="service-price">{money(s.price)}<sup>+</sup></strong>
+                      </div>
+                      <p>{s.desc}</p>
+                      <ul>
+                        {s.items.map(item => <li key={item}><Check size={11} /> {item}</li>)}
+                      </ul>
+                      <button className="service-cta" onClick={() => openTab('booking')}>
+                        Book this service <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PACKAGES TAB */}
+          {activeTab === 'packages' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">SIGNATURE PACKAGES</p>
+                <h2>Choose your level of Luxe.</h2>
+                <p>Simple starting prices. Personalized service. A finish that speaks for itself.</p>
+              </FadeIn>
+              <div className="packages-grid">
+                {PACKAGES.map((p, i) => (
+                  <FadeIn key={p.name} delay={i * 100} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                    <span className="package-tag">{p.tag}</span>
+                    {p.featured && <div className="package-glow" />}
+                    <h3>{p.name}</h3>
+                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                    <p>{p.desc}</p>
+                    <ul>
+                      {p.features.map(f => <li key={f}><Check size={12} /> {f}</li>)}
+                    </ul>
+                    <button
+                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                      onClick={() => { setSelectedPackage(i); openTab('booking'); }}
+                    >
+                      Choose {p.name}
+                    </button>
+                  </FadeIn>
+                ))}
+              </div>
+              <FadeIn className="pricing-note">
+                <strong>Vehicle-size pricing:</strong> Sedan/Coupe +$0 · Small SUV +$25 · Large SUV/Truck +$50 · Three-Row/Large Truck +$75. Final pricing may vary by condition.
+              </FadeIn>
+            </div>
+          )}
+
+          {/* PROTECTION TAB */}
+          {activeTab === 'protection' && (
+            <div className="tab-panel">
+              <div className="protection-section">
+                <FadeIn className="protection-left" direction="left">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="protection-img-accent" />
+                </FadeIn>
+                <FadeIn className="protection-right" delay={150}>
+                  <p className="eyebrow">LUXE PROTECTION</p>
+                  <h2>More than shine.<br /><em>Built to protect.</em></h2>
+                  <p>Our ceramic coating service combines meticulous preparation with long-lasting hydrophobic protection. The result is deeper gloss, easier maintenance, and a finish built for the road.</p>
+                  <div className="protection-tiers">
+                    {[['1 YEAR', 650], ['3 YEAR', 950], ['5 YEAR', 1250]].map(([label, price]) => (
+                      <div key={String(label)} className="protection-tier">
+                        <span>{label}</span>
+                        <strong>{money(Number(price))}<sup>+</sup></strong>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="btn-dark" onClick={() => openTab('booking')}>Request Coating Quote</button>
+                </FadeIn>
+              </div>
+
+              <div className="addons-section" style={{ background: 'var(--black)', padding: '80px 7vw', marginTop: '0' }}>
+                <FadeIn className="section-header dark-header">
+                  <div>
+                    <p className="eyebrow eyebrow-dim">LUXE ADD-ONS</p>
+                    <h2>Make it yours.</h2>
+                  </div>
+                  <p>Build your service around what your vehicle actually needs.</p>
+                </FadeIn>
+                <div className="addons-grid">
+                  {ADD_ONS.map(([name, price], i) => (
+                    <button
+                      key={name}
+                      className={`addon-btn ${selectedAddOns.includes(i) ? 'addon-selected' : ''}`}
+                      onClick={() => toggleAddOn(i)}
+                    >
+                      <span>{name}</span>
+                      <strong>+{money(price)}</strong>
+                      {selectedAddOns.includes(i) && <div className="addon-check"><Check size={10} /></div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GALLERY TAB */}
+          {activeTab === 'gallery' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">THE LUXE COLLECTION</p>
+                <h2>Made to be seen.</h2>
+                <p>Premium vehicles. Precise finishes. Attention to the details that change the whole look.</p>
+              </FadeIn>
+              <div className="gallery-grid">
+                <div className="gallery-cell gallery-main">
+                  <img src={SERVICES[2].image} alt="Luxe signature detail" />
+                  <div className="gallery-caption">Signature Detail</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[1].image} alt="Interior detail" />
+                  <div className="gallery-caption">Interior Care</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[3].image} alt="Paint correction" />
+                  <div className="gallery-caption">Paint Correction</div>
+                </div>
+                <div className="gallery-cell gallery-wide">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="gallery-caption">Ceramic Coating</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[0].image} alt="Exterior detail" />
+                  <div className="gallery-caption">Exterior Detail</div>
+                </div>
+              </div>
+
+              <div className="luxury-banner" style={{ marginTop: '40px' }}>
+                <img src="https://images.pexels.com/photos/27968215/pexels-photo-27968215.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+                <div className="banner-overlay" />
+                <FadeIn className="banner-content">
+                  <p className="eyebrow eyebrow-glow">THE LUXE COLLECTION</p>
+                  <h2>Luxury vehicles<br />deserve luxury care.</h2>
+                  <p>Specialized service for premium, exotic, collector, and specialty vehicles.</p>
+                  <button className="btn-ghost" onClick={() => scrollTo('contact')}>Request a Custom Quote</button>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* MEMBERSHIP TAB */}
+          {activeTab === 'membership' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">LUXE MEMBERSHIP</p>
+                <h2>Don't wait until your car needs rescuing.</h2>
+                <p>Keep the finish you love with a maintenance plan built around consistency.</p>
+              </FadeIn>
+              <div className="membership-grid">
+                {MEMBERSHIPS.map((plan, i) => (
+                  <FadeIn key={plan.name} delay={i * 100} className="membership-card">
+                    <p className="eyebrow">{plan.name.toUpperCase()}</p>
+                    <div className="member-price">
+                      {money(plan.price)}<small>/month</small>
+                    </div>
+                    <p>{plan.desc}</p>
+                    <ul>
+                      {plan.features.map(f => <li key={f}><Check size={11} /> {f}</li>)}
+                    </ul>
+                    <div className="member-savings-badge">
+                      <Shield size={12} /> {plan.savings}
+                    </div>
+                    <Link to="/login" className="btn-outline btn-full">Join {plan.name}</Link>
+                  </FadeIn>
+                ))}
+              </div>
+
+              <div className="process-section" style={{ marginTop: '40px' }}>
+                <FadeIn className="center-heading">
+                  <p className="eyebrow">THE PROCESS</p>
+                  <h2>Simple from booking to pickup.</h2>
+                </FadeIn>
+                <div className="process-grid">
+                  {[
+                    ['01', 'Choose Your Service', 'Select the package or service your vehicle needs.'],
+                    ['02', 'Tell Us About Your Vehicle', 'Share the year, make, model, size, and condition.'],
+                    ['03', 'Schedule', 'Choose your preferred appointment date and time.'],
+                    ['04', 'Experience Auto Luxe', 'Drop off or request concierge service.'],
+                    ['05', 'Drive Away Different', 'Leave with a vehicle ready to be noticed.'],
+                  ].map(([num, title, desc], i) => (
+                    <FadeIn key={num} delay={i * 80} className="process-card">
+                      <span className="process-num">{num}</span>
+                      <h3>{title}</h3>
+                      <p>{desc}</p>
+                    </FadeIn>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BOOKING TAB */}
+          {activeTab === 'booking' && (
+            <div className="tab-panel">
+              <div className="booking-section">
+                <FadeIn className="booking-left">
+                  <p className="eyebrow">BUILD YOUR LUXE SERVICE</p>
+                  <h2>Get an instant starting estimate.</h2>
+                  <p>Select a package, vehicle size, condition, and optional add-ons.</p>
+                  <div className="estimate-box">
+                    <div className="estimate-label">Estimated Starting Total</div>
+                    <div className="estimate-price">{money(estimated)}</div>
+                    <div className="estimate-note">Before custom-service adjustments</div>
+                    <div className="estimate-savings">
+                      Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
+                    </div>
+                  </div>
+                  <div className="portal-cta-box">
+                    <p>Want to track your service history and savings?</p>
+                    <Link to="/login" className="btn-outline">Create Your Portal Account</Link>
+                  </div>
+                </FadeIn>
+
+                <FadeIn delay={150} className="booking-right">
+                  <form className="booking-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                      <label>Package</label>
+                      <div className="pkg-choices">
+                        {PACKAGES.map((p, i) => (
+                          <button
+                            type="button"
+                            key={p.name}
+                            className={`pkg-choice ${selectedPackage === i ? 'pkg-active' : ''}`}
+                            onClick={() => setSelectedPackage(i)}
+                          >
+                            <span>{p.name}</span>
+                            <strong>{money(p.price)}+</strong>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Vehicle Size</label>
+                        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))}>
+                          {VEHICLE_SIZES.map((v, i) => (
+                            <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Vehicle Condition</label>
+                        <select value={condition} onChange={e => setCondition(e.target.value)}>
+                          <option>Light</option>
+                          <option>Moderate</option>
+                          <option>Heavy</option>
+                          <option>Severe</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Optional Add-Ons</label>
+                      <div className="mini-addons">
+                        {ADD_ONS.map(([name, price], i) => (
+                          <button
+                            type="button"
+                            key={name}
+                            className={`mini-addon ${selectedAddOns.includes(i) ? 'mini-active' : ''}`}
+                            onClick={() => toggleAddOn(i)}
+                          >
+                            {name}<span>+${price}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Full Name</label>
+                        <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone Number</label>
+                        <input required type="tel" placeholder="330-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Email Address</label>
+                        <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Year / Make / Model</label>
+                        <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Additional Notes</label>
+                      <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                    </div>
+                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent}>
+                      {formSent ? '✓ Request Submitted' : 'Request My Appointment'}
+                    </button>
+                    {formSent && (
+                      <p className="form-success">Your request has been submitted. We'll be in touch shortly.</p>
+                    )}
+                  </form>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* FAQ TAB */}
+          {activeTab === 'faq' && (
+            <div className="tab-panel">
+              <div className="faq-section" style={{ padding: '0 7vw', display: 'grid', gridTemplateColumns: '0.6fr 1.4fr', gap: '8vw' }}>
+                <FadeIn className="faq-heading">
+                  <p className="eyebrow">FAQ</p>
+                  <h2>Questions, answered.</h2>
+                </FadeIn>
+                <div className="faq-list">
+                  {FAQS.map(([q, a], i) => (
+                    <div key={q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                      <button onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                        <span>{q}</span>
+                        {openFaq === i ? <Minus size={16} /> : <Plus size={16} />}
+                      </button>
+                      <div className="faq-answer">
+                        <p>{a}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* CONTACT - always visible at bottom */}
+      <section id="contact" className="contact-section">
+        <FadeIn className="contact-left">
+          <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
+          <h2>Your vehicle.<br /><em>Our standard.</em></h2>
+          <p>Ready to elevate the finish? Let's build the right service for your vehicle.</p>
+        </FadeIn>
+        <FadeIn delay={150} className="contact-right">
+          <a href="tel:3309903956" className="contact-link">330-990-3956</a>
+          <a href="mailto:support@northsplash.com" className="contact-link">support@northsplash.com</a>
+          <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
+        </FadeIn>
+      </section>
+
+      <Footer onScrollTo={scrollTo} />
+    </div>
+  );
 }
-
-function HouseDrawer({door,form,setForm,history,manual,saving,onClose,onSave,onEstimate,onLocation}:{door:any;form:any;setForm:any;history:TerritoryDoorHistory[];manual:boolean;saving:boolean;onClose:()=>void;onSave:(e?:React.FormEvent,status?:string)=>void;onEstimate:()=>void;onLocation:()=>void}){
-  const [panel,setPanel]=useState<'details'|'history'>('details');
-  const protectedDNK=door?.do_not_knock||door?.status==='do_not_knock';
-  return <div className="house-drawer-backdrop" onClick={onClose}><form className="house-drawer" onSubmit={e=>onSave(e)} onClick={e=>e.stopPropagation()}>
-    <div className="house-drawer-handle"/><div className="house-drawer-head"><div><span className="eyebrow">{manual?'MANUAL / OUTSIDE TERRITORY':'SELECTED HOUSE'}</span><h2>{form.address||'Address loading…'}</h2><div className="house-status-pill" style={{background:doorStatus(form.status).color}}>{doorStatus(form.status).label}</div></div><button type="button" className="icon-btn" onClick={onClose}><X/></button></div>
-    <div className="house-tabs"><button type="button" className={panel==='details'?'active':''} onClick={()=>setPanel('details')}>Lead Details</button><button type="button" className={panel==='history'?'active':''} onClick={()=>setPanel('history')}><History size={14}/> History ({history.length})</button></div>
-    {panel==='details'?<>
-      {manual&&<div className="house-manual-tools"><button type="button" className="btn-outline" onClick={onLocation}><Crosshair size={15}/> Use Current Location</button><input required placeholder="Street address" value={form.address} onChange={e=>setForm((p:any)=>({...p,address:e.target.value}))}/></div>}
-      {protectedDNK&&<div className="dnk-warning">This property is on the permanent Do Not Knock list. The status is protected across territory reassignment.</div>}
-      <div className="house-quick-grid">{STATUS_QUICK.map(status=><button type="button" disabled={protectedDNK&&status!=='do_not_knock'} key={status} className={form.status===status?'active':''} style={{'--status-color':doorStatus(status).color} as any} onClick={()=>setForm((p:any)=>({...p,status}))}>{doorStatus(status).short}</button>)}</div>
-      <div className="house-form-grid"><label><span>Name</span><input value={form.customer_name} onChange={e=>setForm((p:any)=>({...p,customer_name:e.target.value}))}/></label><label><span>Phone</span><input type="tel" value={form.phone} onChange={e=>setForm((p:any)=>({...p,phone:e.target.value}))}/></label><label><span>Email</span><input type="email" value={form.email} onChange={e=>setForm((p:any)=>({...p,email:e.target.value}))}/></label><label><span>Vehicle</span><input value={form.vehicle_info} onChange={e=>setForm((p:any)=>({...p,vehicle_info:e.target.value}))}/></label><label><span>Service Interest</span><input value={form.service_interest} onChange={e=>setForm((p:any)=>({...p,service_interest:e.target.value}))}/></label><label><span>Estimated Value</span><input type="number" min="0" value={form.estimated_value} onChange={e=>setForm((p:any)=>({...p,estimated_value:e.target.value}))}/></label><label><span>Follow-Up</span><input type="datetime-local" value={form.follow_up_at} onChange={e=>setForm((p:any)=>({...p,follow_up_at:e.target.value}))}/></label><label><span>Appointment Time</span><input type="datetime-local" value={form.appointment_at} onChange={e=>setForm((p:any)=>({...p,appointment_at:e.target.value}))}/></label></div>
-      <label className="house-notes"><span>Notes</span><textarea value={form.notes} onChange={e=>setForm((p:any)=>({...p,notes:e.target.value}))}/></label>
-      <div className="house-drawer-actions"><button type="button" className="btn-outline" onClick={onEstimate}>Create Estimate</button><button className="btn-primary" disabled={saving}>{saving?'Saving…':form.status==='appointment_set'&&form.appointment_at?'Save + Create Appointment':'Save House / Lead'}</button></div>
-    </>:<div className="house-history-list">{history.map(h=><div key={h.id}><i style={{background:doorStatus(h.new_status).color}}/><div><strong>{doorStatus(h.new_status).label}</strong><span>{localDateTime(h.created_at)}</span><p>{h.notes||'Status updated'}</p></div></div>)}{!history.length&&<div className="ns-empty">No previous house activity.</div>}</div>}
-  </form></div>;
-}
-
-function Kpi({label,value,detail}:{label:string;value:string;detail?:string}){return <div className="d2d-kpi"><span>{label}</span><strong>{value}</strong>{detail&&<small>{detail}</small>}</div>}
-function Goal({label,value,goal,moneyMode=false}:{label:string;value:number;goal:number;moneyMode?:boolean}){const pct=percent(value,goal);return <div className="goal-row"><div><span>{label}</span><strong>{moneyMode?money(value):value} / {moneyMode?money(goal):goal}</strong></div><div className="goal-track"><i style={{width:`${pct}%`}}/></div></div>}
-function loadOffline():OfflineAction[]{try{return JSON.parse(localStorage.getItem(OFFLINE_KEY)||'[]')}catch{return[]}}
-function getPosition():Promise<LiveLocation|null>{return new Promise(resolve=>{if(!navigator.geolocation)return resolve(null);navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}),()=>resolve(null),{enableHighAccuracy:true,timeout:10000,maximumAge:30000})})}
