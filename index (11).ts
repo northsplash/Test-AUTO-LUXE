@@ -3,13 +3,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-Client-Info, Apikey','Content-Type':'application/json'};
 
 Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});try{
- const url=Deno.env.get('SUPABASE_URL')||'',resend=Deno.env.get('RESEND_API_KEY');
- let key='';
- const secretKeysRaw=Deno.env.get('SUPABASE_SECRET_KEYS');
- if(secretKeysRaw){try{const parsed=JSON.parse(secretKeysRaw);key=parsed?.default||parsed?.service_role||parsed?.serviceRole||''}catch(e){console.error('[automation-worker] failed to parse SUPABASE_SECRET_KEYS',e)}}
- if(!key)key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
- if(!url||!key)throw new Error('Supabase server credentials are missing.');
- const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const token=(req.headers.get('Authorization')||'').replace('Bearer ','');const {data:{user}}=await admin.auth.getUser(token);if(!user)throw new Error('Unauthorized');const {data:actor}=await admin.from('profiles').select('role,portal_role,permissions').eq('id',user.id).maybeSingle();if(!(actor?.role==='admin'||actor?.portal_role==='owner'||actor?.permissions?.['notifications.manage']))throw new Error('Automation access required.');
+ const url=Deno.env.get('SUPABASE_URL')!,key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,resend=Deno.env.get('RESEND_API_KEY');
+ const admin=createClient(url,key,{auth:{persistSession:false}});const token=(req.headers.get('Authorization')||'').replace('Bearer ','');const {data:{user}}=await admin.auth.getUser(token);if(!user)throw new Error('Unauthorized');const {data:actor}=await admin.from('profiles').select('role,portal_role,permissions').eq('id',user.id).maybeSingle();if(!(actor?.role==='admin'||actor?.portal_role==='owner'||actor?.permissions?.['notifications.manage']))throw new Error('Automation access required.');
  await queueDueEvents(admin);
  const {data:events,error}=await admin.from('automation_events').select('*').eq('status','pending').lte('process_after',new Date().toISOString()).order('process_after').limit(100);if(error)throw error;let processed=0,failed=0;
  for(const event of events||[]){try{
