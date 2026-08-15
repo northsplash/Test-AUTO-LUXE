@@ -30,8 +30,6 @@ type Props = {
   statusFilter?: string[];
   showDoorLabels?: boolean;
   className?: string;
-  autoFit?: boolean;
-  mobileGestureLock?: boolean;
 };
 
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -54,8 +52,6 @@ export default function FieldTerritoryMap({
   statusFilter = [],
   showDoorLabels = false,
   className = '',
-  autoFit = true,
-  mobileGestureLock = true,
 }: Props) {
   const el = useRef<HTMLDivElement | null>(null);
   const map = useRef<any>(null);
@@ -65,18 +61,12 @@ export default function FieldTerritoryMap({
   const points = useRef<[number, number][]>([]);
   const editableRef = useRef(editable);
   const onMapClickRef = useRef(onMapClick);
-  const onDoorClickRef = useRef(onDoorClick);
-  const onTerritoryClickRef = useRef(onTerritoryClick);
   const onPolygonChangeRef = useRef(onPolygonChange);
   const [ready, setReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [interactionEnabled, setInteractionEnabled] = useState(false);
-  const lastFitKey = useRef('');
 
   useEffect(() => { editableRef.current = editable; }, [editable]);
   useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
-  useEffect(() => { onDoorClickRef.current = onDoorClick; }, [onDoorClick]);
-  useEffect(() => { onTerritoryClickRef.current = onTerritoryClick; }, [onTerritoryClick]);
   useEffect(() => { onPolygonChangeRef.current = onPolygonChange; }, [onPolygonChange]);
 
   useEffect(() => {
@@ -122,9 +112,6 @@ export default function FieldTerritoryMap({
       preferCanvas: true,
       minZoom: 3,
       maxZoom: 20,
-      scrollWheelZoom: true,
-      touchZoom: true,
-      dragging: true,
     }).setView([35.7796, -78.6382], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20,
@@ -234,7 +221,7 @@ export default function FieldTerritoryMap({
       }
       if (layer) {
         layer.bindTooltip(`<strong>${escapeText(territory.name)}</strong>`, { sticky: true });
-        layer.on('click', (e: any) => { L.DomEvent.stopPropagation(e); onTerritoryClickRef.current?.(territory); });
+        layer.on('click', (e: any) => { L.DomEvent.stopPropagation(e); onTerritoryClick?.(territory); });
         layer.addTo(layers.current);
       }
     });
@@ -261,7 +248,7 @@ export default function FieldTerritoryMap({
         fillOpacity: 1,
         weight: selected ? 4 : 2,
       });
-      marker.on('click', (e: any) => { L.DomEvent.stopPropagation(e); onDoorClickRef.current?.(door); });
+      marker.on('click', (e: any) => { L.DomEvent.stopPropagation(e); onDoorClick?.(door); });
       const address = door.address || 'House';
       marker.bindTooltip(`${routeIndex ? `<b>#${routeIndex}</b> · ` : ''}${escapeText(address)} · ${escapeText(status.label)}`, {
         direction: 'top', sticky: true, permanent: showDoorLabels && Boolean(door.address), className: 'ns-house-tooltip',
@@ -280,25 +267,17 @@ export default function FieldTerritoryMap({
       });
       marker.on('click', (e: any) => {
         L.DomEvent.stopPropagation(e);
-        onDoorClickRef.current?.({ latitude:Number(lead.latitude), longitude:Number(lead.longitude), address:lead.address, status:lead.status, territory_id:lead.territory_id, lead_id:lead.id });
+        onDoorClick?.({ latitude:Number(lead.latitude), longitude:Number(lead.longitude), address:lead.address, status:lead.status, territory_id:lead.territory_id, lead_id:lead.id });
       });
       marker.bindTooltip(`${escapeText(lead.address || lead.customer_name || 'Lead')} · ${escapeText(status.label)}`, { sticky:true });
       marker.addTo(layers.current);
       bounds.push([Number(lead.latitude), Number(lead.longitude)]);
     });
 
-    // Only auto-fit when the underlying territory/door dataset changes.
-    // State changes such as selecting a house must NEVER reset the rep's zoom/center.
-    const fitKey = JSON.stringify({
-      territories: territories.map(t => [t.id, t.updated_at]),
-      doors: visibleDoors.map(d => d.id),
-      route: routeDoorIds,
-    });
-    if (autoFit && !editable && bounds.length && bounds.length < 900 && lastFitKey.current !== fitKey) {
-      lastFitKey.current = fitKey;
-      try { map.current.fitBounds(bounds, { padding:[32,32], maxZoom:17, animate:false }); } catch { /* noop */ }
+    if (bounds.length && bounds.length < 900) {
+      try { map.current.fitBounds(bounds, { padding:[32,32], maxZoom:17 }); } catch { /* noop */ }
     }
-  }, [territories, leads, visibleDoors, selectedTerritoryId, routeDoorIds, activeDoorId, showDoorLabels, autoFit, editable]);
+  }, [territories, leads, visibleDoors, selectedTerritoryId, routeDoorIds, activeDoorId, showDoorLabels, onDoorClick, onTerritoryClick]);
 
   useEffect(() => {
     if (!map.current || !locationLayer.current || !(window as any).L) return;
@@ -318,22 +297,6 @@ export default function FieldTerritoryMap({
     const timer = setTimeout(() => map.current?.invalidateSize(), 100);
     return () => clearTimeout(timer);
   }, [fullscreen]);
-
-  useEffect(() => {
-    const resize = () => setTimeout(() => map.current?.invalidateSize({ animate:false }), 80);
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', resize);
-    return () => { window.removeEventListener('resize', resize); window.removeEventListener('orientationchange', resize); };
-  }, []);
-
-  useEffect(() => {
-    if (!map.current || !mobileGestureLock || editable) return;
-    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
-    if (!coarse) return;
-    const set = interactionEnabled;
-    const controls = ['dragging','touchZoom','doubleClickZoom','scrollWheelZoom','boxZoom','keyboard'];
-    controls.forEach(name => { const control = map.current?.[name]; if (control) set ? control.enable?.() : control.disable?.(); });
-  }, [interactionEnabled, mobileGestureLock, editable, ready]);
 
   const reset = () => {
     points.current = [];
@@ -357,7 +320,6 @@ export default function FieldTerritoryMap({
         {editable && <><button type="button" className="map-tool-btn" disabled={!points.current.length} onClick={undo}>Undo Point</button><button type="button" className="map-tool-btn" onClick={reset}>Clear</button></>}
       </div>
       <div ref={el} className="field-map-canvas" />
-      {mobileGestureLock && !editable && <div className={`map-interaction-toggle ${interactionEnabled?'active':''}`}><button type="button" onClick={()=>setInteractionEnabled(v=>!v)}>{interactionEnabled?'Done · Scroll Page':'Tap to Use Map'}</button></div>}
       {editable && <div className="field-map-tools"><span>Click the map to add boundary points. Drag numbered points to resize. Right-click a point to remove it.</span><strong>{points.current.length} points</strong></div>}
     </div>
   );

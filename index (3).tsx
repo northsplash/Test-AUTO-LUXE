@@ -1,815 +1,718 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, Calendar, CreditCard, Star, Plus, LogOut,
-  TrendingUp, Shield, Clock, CheckCircle, ChevronRight, Menu, X,
-  Car, Sparkles, ArrowUp
+  ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
+  Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { signOut } from '@/lib/auth';
+import { Navigation } from '@/components/Navigation';
+import { Footer } from '@/components/Footer';
+import { useScrollAnimation } from '@/hooks/useScrollAnimation';
+import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import { Appointment, Payment, Subscription } from '@/lib/supabase';
-import { money, calcSavings, PACKAGES, ADD_ONS, VEHICLE_SIZES, MEMBERSHIPS } from '@/lib/data';
-import { sendCommunication } from '@/lib/communications';
+import { trackPageView } from '@/lib/auth';
 
-type Tab = 'dashboard' | 'appointments' | 'subscription' | 'billing';
+type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending: 'badge-yellow',
-    confirmed: 'badge-blue',
-    in_progress: 'badge-purple',
-    completed: 'badge-green',
-    cancelled: 'badge-red',
-    active: 'badge-green',
-    paused: 'badge-yellow',
-  };
-  return <span className={`status-badge ${colors[status] ?? 'badge-gray'}`}>{status.replace('_', ' ')}</span>;
-}
+const TABS: { id: TabId; label: string; Icon: any }[] = [
+  { id: 'services', label: 'Services', Icon: Car },
+  { id: 'packages', label: 'Packages', Icon: Package },
+  { id: 'protection', label: 'Protection', Icon: Gem },
+  { id: 'gallery', label: 'Gallery', Icon: Camera },
+  { id: 'membership', label: 'Membership', Icon: Crown },
+  { id: 'booking', label: 'Book', Icon: Calendar },
+  { id: 'faq', label: 'FAQ', Icon: HelpCircle },
+];
 
-function SavingsBar({ spent, savings }: { spent: number; savings: number }) {
-  const total = spent + savings;
-  const spentPct = total > 0 ? (spent / total) * 100 : 50;
+function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useScrollAnimation();
   return (
-    <div className="savings-visual">
-      <div className="savings-bar">
-        <div className="savings-spent" style={{ width: `${spentPct}%` }}>
-          <span>Invested</span>
-        </div>
-        <div className="savings-saved" style={{ width: `${100 - spentPct}%` }}>
-          <span>Saved</span>
-        </div>
-      </div>
-      <div className="savings-labels">
-        <div className="savings-label-item">
-          <div className="swatch swatch-spent" />
-          <div>
-            <strong>{money(spent)}</strong>
-            <span>Lifetime invested in care</span>
-          </div>
-        </div>
-        <div className="savings-label-item">
-          <div className="swatch swatch-saved" />
-          <div>
-            <strong>{money(savings)}</strong>
-            <span>Estimated damage prevented</span>
-          </div>
-        </div>
-      </div>
-      <div className="savings-roi">
-        <ArrowUp size={14} />
-        <span>~{money(savings - spent)} net vehicle value protection</span>
-      </div>
+    <div
+      ref={ref as React.Ref<HTMLDivElement>}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'none' : 'translateY(32px)',
+        transition: `opacity 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-export default function Portal() {
-  const { user, profile, loading } = useAuth();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [dataLoading, setDataLoading] = useState(true);
-
-  // Booking form state
-  const [showBook, setShowBook] = useState(false);
-  const [bookPkg, setBookPkg] = useState(1);
-  const [bookVehicle, setBookVehicle] = useState(0);
-  const [bookAddOns, setBookAddOns] = useState<number[]>([]);
-  const [bookNotes, setBookNotes] = useState('');
-  const [bookSubmitting, setBookSubmitting] = useState(false);
-  const [bookDate, setBookDate] = useState('');
-const [bookTime, setBookTime] = useState('');
-const [availableTimes, setAvailableTimes] = useState<string[]>([]);
-const [timesLoading, setTimesLoading] = useState(false);
-  const [bookDone, setBookDone] = useState(false);
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
+  const [serviceFilter, setServiceFilter] = useState('All');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState(1);
+  const [vehicle, setVehicle] = useState(0);
+  const [condition, setCondition] = useState('Light');
+  const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
+  const [formSent, setFormSent] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', notes: '' });
+  const [heroVisible, setHeroVisible] = useState(false);
+  const [counterVal, setCounterVal] = useState(0);
+  const tabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loading && !user) navigate('/login');
-  }, [user, loading, navigate]);
+    setTimeout(() => setHeroVisible(true), 100);
+    trackPageView('/').catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [apts, pays, subs] = await Promise.all([
-        supabase.from('appointments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('payments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('subscriptions').select('*').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
-      ]);
-      setAppointments(apts.data ?? []);
-      setPayments(pays.data ?? []);
-      setSubscription(subs.data ?? null);
-      setDataLoading(false);
-    })();
-  }, [user]);
+    if (heroVisible) {
+      const target = 500;
+      const duration = 2000;
+      const step = target / (duration / 16);
+      let current = 0;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        setCounterVal(Math.round(current));
+        if (current >= target) clearInterval(timer);
+      }, 16);
+      return () => clearInterval(timer);
+    }
+  }, [heroVisible]);
 
-  const lifetimeSpend = payments.reduce((s, p) => s + p.amount, 0);
-  const lifetimeSavings = calcSavings(lifetimeSpend);
-  const upcomingAppointment = appointments.find(a => a.status !== 'completed' && a.status !== 'cancelled');
-
-  const handleSignOut = async () => {
-    await signOut().catch(() => {});
-    navigate('/');
+  const scrollTo = (id: string) => {
+    if (id === 'booking') {
+      setActiveTab('booking');
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else if (id === 'contact') {
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setActiveTab(id as TabId);
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
   };
 
-  const loadAvailableTimes = async (date: string) => {
-  setBookDate(date);
-  setBookTime('');
-  setAvailableTimes([]);
+  const estimated = useMemo(() => {
+    const base = PACKAGES[selectedPackage].price;
+    const size = VEHICLE_SIZES[vehicle].extra;
+    const condExtra = condition === 'Moderate' ? 35 : condition === 'Heavy' ? 75 : condition === 'Severe' ? 125 : 0;
+    const extras = selectedAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
+    return base + size + condExtra + extras;
+  }, [selectedPackage, vehicle, condition, selectedAddOns]);
 
-  if (!date) return;
+  const toggleAddOn = (i: number) => {
+    setSelectedAddOns(c => c.includes(i) ? c.filter(x => x !== i) : [...c, i]);
+  };
 
-  setTimesLoading(true);
+  const filtered = serviceFilter === 'All' ? SERVICES : SERVICES.filter(s => s.category === serviceFilter);
 
-  try {
-    const { data: dayAvailability, error: availabilityError } =
-      await supabase
-        .from('availability')
-        .select('*')
-        .eq('date', date)
-        .maybeSingle();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await supabase.from('appointments').insert({
+      service_name: PACKAGES[selectedPackage].name,
+      package_name: PACKAGES[selectedPackage].name,
+      add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
+      vehicle_info: formData.vehicle,
+      price: estimated,
+      notes: formData.notes,
+      status: 'pending',
+    }).catch(() => {});
+    setFormSent(true);
+  };
 
-    if (availabilityError) throw availabilityError;
+  const openTab = (tab: TabId) => {
+    setActiveTab(tab);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  };
 
-    if (!dayAvailability || !dayAvailability.is_available) {
-      setAvailableTimes([]);
-      return;
-    }
-
-    const { data: booked, error: bookedError } = await supabase.rpc(
-      'get_booked_times',
-      {
-        for_date: date,
-      }
-    );
-
-    if (bookedError) throw bookedError;
-
-    const bookedTimes = new Set(
-      (booked ?? []).map((item: any) =>
-        new Date(item.scheduled_at).toLocaleTimeString('en-US', {
-          timeZone: 'America/New_York',
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      )
-    );
-
-    const slots: string[] = [];
-
-    const [startHour, startMinute] =
-      dayAvailability.start_time.split(':').map(Number);
-
-    const [endHour, endMinute] =
-      dayAvailability.end_time.split(':').map(Number);
-
-    let current = startHour * 60 + startMinute;
-    const end = endHour * 60 + endMinute;
-
-    while (current + dayAvailability.slot_minutes <= end) {
-      const hours = Math.floor(current / 60);
-      const minutes = current % 60;
-
-      const value =
-        `${String(hours).padStart(2, '0')}:` +
-        `${String(minutes).padStart(2, '0')}`;
-
-      if (!bookedTimes.has(value)) {
-        slots.push(value);
-      }
-
-      current += dayAvailability.slot_minutes;
-    }
-
-    setAvailableTimes(slots);
-  } catch (error) {
-    console.error('Availability error:', error);
-    setAvailableTimes([]);
-  } finally {
-    setTimesLoading(false);
-  }
-};
-  
-  const handleBookSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  if (!user) return;
-
-    if (!bookDate || !bookTime) {
-  alert('Please choose an appointment date and time.');
-  return;
-}
-
-  setBookSubmitting(true);
-
-  try {
-    const price =
-      PACKAGES[bookPkg].price +
-      VEHICLE_SIZES[bookVehicle].extra +
-      bookAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
-
-    const { data: appointment, error: appointmentError } = await supabase
-      .from('appointments')
-      .insert({
-        user_id: user.id,
-        customer_name: profile?.full_name ?? null,
-        customer_email: user.email ?? null,
-        customer_phone: profile?.phone ?? null,
-        service_name: PACKAGES[bookPkg].name,
-        scheduled_at: new Date(
-  `${bookDate}T${bookTime}:00`
-).toISOString(),
-        package_name: PACKAGES[bookPkg].name,
-        add_ons: bookAddOns.map(i => ADD_ONS[i][0]),
-        vehicle_info: profile?.vehicle_info ?? '',
-        price,
-        notes: bookNotes,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (appointmentError) throw appointmentError;
-
-    const { error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        user_id: user.id,
-        appointment_id: appointment.id,
-        amount: price,
-        status: 'pending',
-        description: PACKAGES[bookPkg].name,
-      });
-
-    if (paymentError) throw paymentError;
-
-    if (user.email) {
-      sendCommunication('booking_received', {
-        appointment_id: appointment.id,
-        recipient_email: user.email,
-        variables: {
-          customer_name: profile?.full_name || 'Customer',
-          service_name: PACKAGES[bookPkg].name,
-          appointment_date: new Date(appointment.scheduled_at).toLocaleDateString('en-US'),
-          appointment_time: new Date(appointment.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        },
-      }).catch(console.warn);
-    }
-
-    navigate('/checkout', {
-  state: {
-    appointmentId: appointment.id,
-    amount: price,
-    serviceName: PACKAGES[bookPkg].name,
-    servicePrice: PACKAGES[bookPkg].price,
-    vehicleName: VEHICLE_SIZES[bookVehicle].name,
-    vehicleExtra: VEHICLE_SIZES[bookVehicle].extra,
-    addOns: bookAddOns.map(i => ({
-      name: ADD_ONS[i][0],
-      price: ADD_ONS[i][1],
-    })),
-  },
-});
-  } catch (error) {
-    console.error('Booking/payment error:', error);
-
-    alert(
-      error instanceof Error
-        ? error.message
-        : 'Unable to start payment. Please try again.'
-    );
-
-    setBookSubmitting(false);
-  }
-};
-  const handleSubscribe = async (plan: typeof MEMBERSHIPS[0]) => {
-  if (!user) return;
-
-  try {
-    const nextDate = new Date();
-    nextDate.setMonth(nextDate.getMonth() + 1);
-
-    const { data: newSubscription, error } = await supabase
-      .from('subscriptions')
-      .insert({
-        user_id: user.id,
-        plan_name: plan.name,
-        plan_price: plan.price,
-
-        // Don't activate until payment succeeds
-        status: 'pending',
-
-        next_detail_date: nextDate.toISOString().split('T')[0],
-        billing_cycle_start: new Date().toISOString().split('T')[0],
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    navigate('/checkout', {
-      state: {
-        paymentType: 'membership',
-        subscriptionId: newSubscription.id,
-
-        amount: plan.price,
-
-        serviceName: `${plan.name} Membership`,
-        servicePrice: plan.price,
-
-        vehicleName: '',
-        vehicleExtra: 0,
-        addOns: [],
-      },
-    });
-  } catch (error) {
-    console.error('Membership checkout error:', error);
-
-    alert(
-      error instanceof Error
-        ? error.message
-        : 'Unable to start membership payment.'
-    );
-  }
-};
-
-  const navItems: { id: Tab; label: string; Icon: any }[] = [
-    { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-    { id: 'appointments', label: 'My Appointments', Icon: Calendar },
-    { id: 'subscription', label: 'Membership', Icon: Star },
-    { id: 'billing', label: 'Billing & Savings', Icon: CreditCard },
-  ];
+  const closeTab = () => {
+    setActiveTab(null);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  };
 
   return (
-    <div className="portal-layout">
-      {/* Sidebar */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-header">
-          <Link to="/" className="sidebar-brand">
-            <div className="brand-mark brand-mark-sm">NS</div>
-            <div>
-              <strong>NORTH SPLASH</strong>
-              <small>AUTO LUXE</small>
-            </div>
-          </Link>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
+    <div className="site">
+      <Navigation onScrollTo={scrollTo} isHomePage />
+
+      {/* HERO */}
+      <section id="home" className="hero">
+        <div className="hero-bg">
+          <img src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+          <div className="hero-gradient" />
+          <div className="hero-noise" />
         </div>
 
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{profile?.full_name?.[0]?.toUpperCase() ?? 'C'}</div>
-          <div>
-            <p>{profile?.full_name ?? 'Customer'}</p>
-            <span>{user?.email}</span>
+        <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>
+          <p className="eyebrow eyebrow-glow">PREMIUM AUTOMOTIVE CARE</p>
+          <h1 className="hero-title">
+            Elevate<br />
+            <em>Your Drive.</em>
+          </h1>
+          <p className="hero-copy">
+            A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
+          </p>
+          <div className="hero-actions">
+            <button className="btn-primary" onClick={() => scrollTo('booking')}>
+              Book Your Detail <ArrowRight size={16} />
+            </button>
+            <button className="btn-ghost" onClick={() => scrollTo('services')}>
+              Explore Services
+            </button>
+          </div>
+
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <strong>{counterVal}+</strong>
+              <span>Vehicles Detailed</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>5★</strong>
+              <span>Client Rating</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>3</strong>
+              <span>Coating Tiers</span>
+            </div>
           </div>
         </div>
 
-        <nav className="sidebar-nav">
-          {navItems.map(({ id, label, Icon }) => (
+        <button className="hero-scroll" onClick={() => scrollTo('services')}>
+          <ChevronDown size={22} />
+        </button>
+      </section>
+
+      {/* INTRO */}
+      <section className="intro-section">
+        <FadeIn>
+          <p className="eyebrow">THE LUXE STANDARD</p>
+          <h2>Clean is the beginning.<br /><em>Exceptional is the goal.</em></h2>
+        </FadeIn>
+        <FadeIn delay={150} className="intro-right">
+          <p>North Splash Auto Luxe brings a premium mindset to automotive care. Every service is built around the condition of your vehicle, the finish you want, and the experience you expect.</p>
+          <div className="intro-pillars">
+            {[
+              [Sparkles, 'Precision Detail', 'Every panel, every surface'],
+              [Shield, 'Long-Term Protection', 'Ceramic & sealant options'],
+              [Star, 'White Glove Service', 'Concierge available'],
+              [Zap, 'Fast Turnaround', 'Most services same-day'],
+            ].map(([Icon, title, sub]) => (
+              <div className="intro-pillar" key={String(title)}>
+                <div className="pillar-icon"><Icon size={18} /></div>
+                <div>
+                  <strong>{String(title)}</strong>
+                  <span>{String(sub)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* TAB NAVIGATION */}
+      <div className="tab-nav-wrap" ref={tabRef}>
+        <div className="tab-nav">
+          {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
-              className={`sidebar-item ${tab === id ? 'sidebar-active' : ''}`}
-              onClick={() => { setTab(id); setSidebarOpen(false); }}
+              className={`tab-nav-btn ${activeTab === id ? 'tab-nav-active' : ''}`}
+              onClick={() => openTab(id)}
             >
-              <Icon size={18} /> {label}
+              <Icon size={15} /> {label}
             </button>
           ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <Link to="/" className="sidebar-item"><Car size={18} /> View Site</Link>
-          <button className="sidebar-item sidebar-signout" onClick={handleSignOut}>
-            <LogOut size={18} /> Sign Out
-          </button>
         </div>
-      </aside>
+      </div>
 
-      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      {/* TEASER CARDS (shown when no tab is active) */}
+      {activeTab === null && (
+        <section className="teasers-section">
+          <FadeIn className="center-heading">
+            <p className="eyebrow">EXPLORE</p>
+            <h2>Everything your vehicle deserves.</h2>
+            <p>Tap any section to dive deeper. Book when you're ready.</p>
+          </FadeIn>
 
-      {/* Main */}
-      <main className="portal-main">
-        <div className="portal-topbar">
-          <button className="sidebar-toggle" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
-          <div className="topbar-title">
-            <h1>{navItems.find(n => n.id === tab)?.label}</h1>
-          </div>
-          <button className="btn-primary topbar-book" onClick={() => setShowBook(true)}>
-            <Plus size={16} /> Book Service
-          </button>
-        </div>
-
-        <div className="portal-content">
-
-          {/* DASHBOARD */}
-          {tab === 'dashboard' && (
-            <div className="dashboard-grid">
-              <div className="dash-welcome">
-                <div>
-                  <h2>Welcome back, {profile?.full_name?.split(' ')[0] ?? 'there'}.</h2>
-                  <p>Here's an overview of your vehicle's care history.</p>
-                </div>
-                <button className="btn-primary" onClick={() => setShowBook(true)}>
-                  <Plus size={16} /> Schedule a Detail
+          <div className="teaser-grid">
+            {/* Services teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[0].image} alt="Services" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Car size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">SERVICES</p>
+                <h3>Care without shortcuts</h3>
+                <p>From exterior refresh to full paint transformation. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
+                <button className="teaser-link" onClick={() => openTab('services')}>
+                  View services <ArrowRight size={13} />
                 </button>
               </div>
+            </FadeIn>
 
-              <div className="dash-stats">
-                <div className="dash-stat-card">
-                  <div className="dash-stat-icon"><CreditCard size={20} /></div>
-                  <div>
-                    <strong>{money(lifetimeSpend)}</strong>
-                    <span>Lifetime Invested</span>
-                  </div>
-                </div>
-                <div className="dash-stat-card dash-stat-accent">
-                  <div className="dash-stat-icon"><Shield size={20} /></div>
-                  <div>
-                    <strong>{money(lifetimeSavings)}</strong>
-                    <span>Est. Damage Prevented</span>
-                  </div>
-                </div>
-                <div className="dash-stat-card">
-                  <div className="dash-stat-icon"><Calendar size={20} /></div>
-                  <div>
-                    <strong>{appointments.filter(a => a.status === 'completed').length}</strong>
-                    <span>Details Completed</span>
-                  </div>
-                </div>
-                <div className="dash-stat-card">
-                  <div className="dash-stat-icon"><Star size={20} /></div>
-                  <div>
-                    <strong>{subscription ? subscription.plan_name : 'None'}</strong>
-                    <span>Membership Plan</span>
-                  </div>
-                </div>
+            {/* Packages teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[2].image} alt="Packages" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Package size={22} /></div>
               </div>
-
-              {/* Savings Visual */}
-              {lifetimeSpend > 0 && (
-                <div className="dash-card dash-savings">
-                  <h3><TrendingUp size={18} /> Your Vehicle Investment vs. Protection</h3>
-                  <p className="dash-card-sub">
-                    Every dollar spent on professional detailing prevents an estimated <strong>$3.80</strong> in long-term paint degradation, interior wear, and resale value loss.
-                  </p>
-                  <SavingsBar spent={lifetimeSpend} savings={lifetimeSavings} />
-                </div>
-              )}
-
-              {/* Upcoming */}
-              <div className="dash-card">
-                <h3><Clock size={18} /> Upcoming Appointment</h3>
-                {upcomingAppointment ? (
-                  <div className="upcoming-apt">
-                    <div className="apt-service">{upcomingAppointment.service_name}</div>
-                    <StatusBadge status={upcomingAppointment.status} />
-                    <div className="apt-price">{money(upcomingAppointment.price)}</div>
-                    <button className="btn-outline" onClick={() => setTab('appointments')}>
-                      View Details <ChevronRight size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <Sparkles size={32} />
-                    <p>No upcoming appointments.</p>
-                    <button className="btn-primary" onClick={() => setShowBook(true)}>Book Now</button>
-                  </div>
-                )}
+              <div className="teaser-body">
+                <p className="eyebrow">PACKAGES</p>
+                <h3>Choose your level of Luxe</h3>
+                <p>Three signature packages from {money(PACKAGES[0].price)} to {money(PACKAGES[2].price)}. Simple pricing, premium results.</p>
+                <button className="teaser-link" onClick={() => openTab('packages')}>
+                  Compare packages <ArrowRight size={13} />
+                </button>
               </div>
+            </FadeIn>
 
-              {/* Membership */}
-              <div className="dash-card">
-                <h3><Star size={18} /> Membership Status</h3>
-                {subscription ? (
-                  <div className="member-status">
-                    <div className="member-plan-badge">{subscription.plan_name}</div>
-                    <div className="member-detail">
-                      <span>Next detail</span>
-                      <strong>{subscription.next_detail_date ? new Date(subscription.next_detail_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD'}</strong>
+            {/* Protection teaser */}
+            <FadeIn className="teaser-card" delay={160}>
+              <div className="teaser-img">
+                <img src={SERVICES[4].image} alt="Protection" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Gem size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">PROTECTION</p>
+                <h3>Built to protect</h3>
+                <p>Ceramic coating in 1, 3, and 5-year tiers. Hydrophobic protection with deeper gloss.</p>
+                <button className="teaser-link" onClick={() => openTab('protection')}>
+                  Explore protection <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Gallery teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[3].image} alt="Gallery" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Camera size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">GALLERY</p>
+                <h3>Made to be seen</h3>
+                <p>Premium vehicles. Precise finishes. The details that change the whole look.</p>
+                <button className="teaser-link" onClick={() => openTab('gallery')}>
+                  View gallery <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Membership teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[1].image} alt="Membership" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Crown size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">MEMBERSHIP</p>
+                <h3>Don't wait until it needs rescuing</h3>
+                <p>Three maintenance plans from {money(MEMBERSHIPS[0].price)}/mo to {money(MEMBERSHIPS[2].price)}/mo. Consistency pays.</p>
+                <button className="teaser-link" onClick={() => openTab('membership')}>
+                  See plans <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Booking teaser */}
+            <FadeIn className="teaser-card teaser-cta" delay={160}>
+              <div className="teaser-body teaser-body-cta">
+                <p className="eyebrow">BOOK NOW</p>
+                <h3>Get an instant estimate</h3>
+                <p>Build your service, pick your add-ons, and request your appointment in minutes.</p>
+                <button className="btn-primary" onClick={() => openTab('booking')}>
+                  Book Your Detail <ArrowRight size={14} />
+                </button>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+      )}
+
+      {/* TAB CONTENT */}
+      {activeTab !== null && (
+        <section className="tab-content-section">
+          <div className="tab-content-header">
+            <button className="tab-back" onClick={closeTab}>
+              <ArrowLeft size={16} /> Back to overview
+            </button>
+            <h2>{TABS.find(t => t.id === activeTab)?.label}</h2>
+          </div>
+
+          {/* SERVICES TAB */}
+          {activeTab === 'services' && (
+            <div className="tab-panel">
+              <FadeIn className="section-header dark-header">
+                <div>
+                  <p className="eyebrow eyebrow-dim">SERVICES</p>
+                  <h2>Care without shortcuts.</h2>
+                </div>
+                <p>From a polished daily driver to a full paint transformation.</p>
+              </FadeIn>
+              <div className="filter-row">
+                {['All', 'Detail', 'Paint', 'Ceramic'].map(f => (
+                  <button key={f} className={`filter-btn ${serviceFilter === f ? 'filter-active' : ''}`} onClick={() => setServiceFilter(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="service-grid">
+                {filtered.map((s, i) => (
+                  <FadeIn key={s.title} delay={i * 80} className="service-card">
+                    <div className="service-img">
+                      <img src={s.image} alt={s.title} />
+                      <div className="service-img-overlay" />
+                      <span className="service-badge">{s.category}</span>
                     </div>
-                    <div className="member-detail">
-                      <span>Monthly rate</span>
-                      <strong>{money(subscription.plan_price)}/mo</strong>
+                    <div className="service-body">
+                      <div className="service-top">
+                        <h3>{s.title}</h3>
+                        <strong className="service-price">{money(s.price)}<sup>+</sup></strong>
+                      </div>
+                      <p>{s.desc}</p>
+                      <ul>
+                        {s.items.map(item => <li key={item}><Check size={11} /> {item}</li>)}
+                      </ul>
+                      <button className="service-cta" onClick={() => openTab('booking')}>
+                        Book this service <ArrowRight size={13} />
+                      </button>
                     </div>
-                    <button className="btn-outline" onClick={() => setTab('subscription')}>Manage <ChevronRight size={14} /></button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <Star size={32} />
-                    <p>No active membership.</p>
-                    <button className="btn-outline" onClick={() => setTab('subscription')}>Explore Plans</button>
-                  </div>
-                )}
+                  </FadeIn>
+                ))}
               </div>
             </div>
           )}
 
-          {/* APPOINTMENTS */}
-          {tab === 'appointments' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div>
-                  <h2>Your Appointments</h2>
-                  <p>{appointments.length} total service{appointments.length !== 1 ? 's' : ''}</p>
-                </div>
-                <button className="btn-primary" onClick={() => setShowBook(true)}>
-                  <Plus size={16} /> New Appointment
-                </button>
+          {/* PACKAGES TAB */}
+          {activeTab === 'packages' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">SIGNATURE PACKAGES</p>
+                <h2>Choose your level of Luxe.</h2>
+                <p>Simple starting prices. Personalized service. A finish that speaks for itself.</p>
+              </FadeIn>
+              <div className="packages-grid">
+                {PACKAGES.map((p, i) => (
+                  <FadeIn key={p.name} delay={i * 100} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                    <span className="package-tag">{p.tag}</span>
+                    {p.featured && <div className="package-glow" />}
+                    <h3>{p.name}</h3>
+                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                    <p>{p.desc}</p>
+                    <ul>
+                      {p.features.map(f => <li key={f}><Check size={12} /> {f}</li>)}
+                    </ul>
+                    <button
+                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                      onClick={() => { setSelectedPackage(i); openTab('booking'); }}
+                    >
+                      Choose {p.name}
+                    </button>
+                  </FadeIn>
+                ))}
+              </div>
+              <FadeIn className="pricing-note">
+                <strong>Vehicle-size pricing:</strong> Sedan/Coupe +$0 · Small SUV +$25 · Large SUV/Truck +$50 · Three-Row/Large Truck +$75. Final pricing may vary by condition.
+              </FadeIn>
+            </div>
+          )}
+
+          {/* PROTECTION TAB */}
+          {activeTab === 'protection' && (
+            <div className="tab-panel">
+              <div className="protection-section">
+                <FadeIn className="protection-left" direction="left">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="protection-img-accent" />
+                </FadeIn>
+                <FadeIn className="protection-right" delay={150}>
+                  <p className="eyebrow">LUXE PROTECTION</p>
+                  <h2>More than shine.<br /><em>Built to protect.</em></h2>
+                  <p>Our ceramic coating service combines meticulous preparation with long-lasting hydrophobic protection. The result is deeper gloss, easier maintenance, and a finish built for the road.</p>
+                  <div className="protection-tiers">
+                    {[['1 YEAR', 650], ['3 YEAR', 950], ['5 YEAR', 1250]].map(([label, price]) => (
+                      <div key={String(label)} className="protection-tier">
+                        <span>{label}</span>
+                        <strong>{money(Number(price))}<sup>+</sup></strong>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="btn-dark" onClick={() => openTab('booking')}>Request Coating Quote</button>
+                </FadeIn>
               </div>
 
-              {appointments.length === 0 ? (
-                <div className="empty-page">
-                  <Calendar size={48} />
-                  <h3>No appointments yet</h3>
-                  <p>Book your first Luxe service to get started.</p>
-                  <button className="btn-primary" onClick={() => setShowBook(true)}>Book Now</button>
+              <div className="addons-section" style={{ background: 'var(--black)', padding: '80px 7vw', marginTop: '0' }}>
+                <FadeIn className="section-header dark-header">
+                  <div>
+                    <p className="eyebrow eyebrow-dim">LUXE ADD-ONS</p>
+                    <h2>Make it yours.</h2>
+                  </div>
+                  <p>Build your service around what your vehicle actually needs.</p>
+                </FadeIn>
+                <div className="addons-grid">
+                  {ADD_ONS.map(([name, price], i) => (
+                    <button
+                      key={name}
+                      className={`addon-btn ${selectedAddOns.includes(i) ? 'addon-selected' : ''}`}
+                      onClick={() => toggleAddOn(i)}
+                    >
+                      <span>{name}</span>
+                      <strong>+{money(price)}</strong>
+                      {selectedAddOns.includes(i) && <div className="addon-check"><Check size={10} /></div>}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="apt-list">
-                  {appointments.map(apt => (
-                    <div key={apt.id} className="apt-card">
-                      <div className="apt-card-main">
-                        <div className="apt-icon"><Car size={20} /></div>
-                        <div className="apt-info">
-                          <h4>{apt.service_name}</h4>
-                          {apt.add_ons.length > 0 && (
-                            <p className="apt-addons">+ {apt.add_ons.join(', ')}</p>
-                          )}
-                          {apt.vehicle_info && <p className="apt-vehicle">{apt.vehicle_info}</p>}
-                          {apt.scheduled_at && (
-                            <p className="apt-date">
-                              <Clock size={12} /> {new Date(apt.scheduled_at).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        <div className="apt-right">
-                          <StatusBadge status={apt.status} />
-                          <div className="apt-card-price">{money(apt.price)}</div>
-                        </div>
+              </div>
+            </div>
+          )}
+
+          {/* GALLERY TAB */}
+          {activeTab === 'gallery' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">THE LUXE COLLECTION</p>
+                <h2>Made to be seen.</h2>
+                <p>Premium vehicles. Precise finishes. Attention to the details that change the whole look.</p>
+              </FadeIn>
+              <div className="gallery-grid">
+                <div className="gallery-cell gallery-main">
+                  <img src={SERVICES[2].image} alt="Luxe signature detail" />
+                  <div className="gallery-caption">Signature Detail</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[1].image} alt="Interior detail" />
+                  <div className="gallery-caption">Interior Care</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[3].image} alt="Paint correction" />
+                  <div className="gallery-caption">Paint Correction</div>
+                </div>
+                <div className="gallery-cell gallery-wide">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="gallery-caption">Ceramic Coating</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[0].image} alt="Exterior detail" />
+                  <div className="gallery-caption">Exterior Detail</div>
+                </div>
+              </div>
+
+              <div className="luxury-banner" style={{ marginTop: '40px' }}>
+                <img src="https://images.pexels.com/photos/27968215/pexels-photo-27968215.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+                <div className="banner-overlay" />
+                <FadeIn className="banner-content">
+                  <p className="eyebrow eyebrow-glow">THE LUXE COLLECTION</p>
+                  <h2>Luxury vehicles<br />deserve luxury care.</h2>
+                  <p>Specialized service for premium, exotic, collector, and specialty vehicles.</p>
+                  <button className="btn-ghost" onClick={() => scrollTo('contact')}>Request a Custom Quote</button>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* MEMBERSHIP TAB */}
+          {activeTab === 'membership' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">LUXE MEMBERSHIP</p>
+                <h2>Don't wait until your car needs rescuing.</h2>
+                <p>Keep the finish you love with a maintenance plan built around consistency.</p>
+              </FadeIn>
+              <div className="membership-grid">
+                {MEMBERSHIPS.map((plan, i) => (
+                  <FadeIn key={plan.name} delay={i * 100} className="membership-card">
+                    <p className="eyebrow">{plan.name.toUpperCase()}</p>
+                    <div className="member-price">
+                      {money(plan.price)}<small>/month</small>
+                    </div>
+                    <p>{plan.desc}</p>
+                    <ul>
+                      {plan.features.map(f => <li key={f}><Check size={11} /> {f}</li>)}
+                    </ul>
+                    <div className="member-savings-badge">
+                      <Shield size={12} /> {plan.savings}
+                    </div>
+                    <Link to="/login" className="btn-outline btn-full">Join {plan.name}</Link>
+                  </FadeIn>
+                ))}
+              </div>
+
+              <div className="process-section" style={{ marginTop: '40px' }}>
+                <FadeIn className="center-heading">
+                  <p className="eyebrow">THE PROCESS</p>
+                  <h2>Simple from booking to pickup.</h2>
+                </FadeIn>
+                <div className="process-grid">
+                  {[
+                    ['01', 'Choose Your Service', 'Select the package or service your vehicle needs.'],
+                    ['02', 'Tell Us About Your Vehicle', 'Share the year, make, model, size, and condition.'],
+                    ['03', 'Schedule', 'Choose your preferred appointment date and time.'],
+                    ['04', 'Experience Auto Luxe', 'Drop off or request concierge service.'],
+                    ['05', 'Drive Away Different', 'Leave with a vehicle ready to be noticed.'],
+                  ].map(([num, title, desc], i) => (
+                    <FadeIn key={num} delay={i * 80} className="process-card">
+                      <span className="process-num">{num}</span>
+                      <h3>{title}</h3>
+                      <p>{desc}</p>
+                    </FadeIn>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BOOKING TAB */}
+          {activeTab === 'booking' && (
+            <div className="tab-panel">
+              <div className="booking-section">
+                <FadeIn className="booking-left">
+                  <p className="eyebrow">BUILD YOUR LUXE SERVICE</p>
+                  <h2>Get an instant starting estimate.</h2>
+                  <p>Select a package, vehicle size, condition, and optional add-ons.</p>
+                  <div className="estimate-box">
+                    <div className="estimate-label">Estimated Starting Total</div>
+                    <div className="estimate-price">{money(estimated)}</div>
+                    <div className="estimate-note">Before custom-service adjustments</div>
+                    <div className="estimate-savings">
+                      Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
+                    </div>
+                  </div>
+                  <div className="portal-cta-box">
+                    <p>Want to track your service history and savings?</p>
+                    <Link to="/login" className="btn-outline">Create Your Portal Account</Link>
+                  </div>
+                </FadeIn>
+
+                <FadeIn delay={150} className="booking-right">
+                  <form className="booking-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                      <label>Package</label>
+                      <div className="pkg-choices">
+                        {PACKAGES.map((p, i) => (
+                          <button
+                            type="button"
+                            key={p.name}
+                            className={`pkg-choice ${selectedPackage === i ? 'pkg-active' : ''}`}
+                            onClick={() => setSelectedPackage(i)}
+                          >
+                            <span>{p.name}</span>
+                            <strong>{money(p.price)}+</strong>
+                          </button>
+                        ))}
                       </div>
-                      {apt.notes && (
-                        <div className="apt-notes">
-                          <span>Notes:</span> {apt.notes}
-                        </div>
-                      )}
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Vehicle Size</label>
+                        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))}>
+                          {VEHICLE_SIZES.map((v, i) => (
+                            <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Vehicle Condition</label>
+                        <select value={condition} onChange={e => setCondition(e.target.value)}>
+                          <option>Light</option>
+                          <option>Moderate</option>
+                          <option>Heavy</option>
+                          <option>Severe</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Optional Add-Ons</label>
+                      <div className="mini-addons">
+                        {ADD_ONS.map(([name, price], i) => (
+                          <button
+                            type="button"
+                            key={name}
+                            className={`mini-addon ${selectedAddOns.includes(i) ? 'mini-active' : ''}`}
+                            onClick={() => toggleAddOn(i)}
+                          >
+                            {name}<span>+${price}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Full Name</label>
+                        <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone Number</label>
+                        <input required type="tel" placeholder="330-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Email Address</label>
+                        <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Year / Make / Model</label>
+                        <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Additional Notes</label>
+                      <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                    </div>
+                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent}>
+                      {formSent ? '✓ Request Submitted' : 'Request My Appointment'}
+                    </button>
+                    {formSent && (
+                      <p className="form-success">Your request has been submitted. We'll be in touch shortly.</p>
+                    )}
+                  </form>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* FAQ TAB */}
+          {activeTab === 'faq' && (
+            <div className="tab-panel">
+              <div className="faq-section" style={{ padding: '0 7vw', display: 'grid', gridTemplateColumns: '0.6fr 1.4fr', gap: '8vw' }}>
+                <FadeIn className="faq-heading">
+                  <p className="eyebrow">FAQ</p>
+                  <h2>Questions, answered.</h2>
+                </FadeIn>
+                <div className="faq-list">
+                  {FAQS.map(([q, a], i) => (
+                    <div key={q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                      <button onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                        <span>{q}</span>
+                        {openFaq === i ? <Minus size={16} /> : <Plus size={16} />}
+                      </button>
+                      <div className="faq-answer">
+                        <p>{a}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* SUBSCRIPTION */}
-          {tab === 'subscription' && (
-            <div className="tab-content">
-              <h2>Membership Plans</h2>
-              {subscription && (
-                <div className="current-plan-banner">
-                  <div>
-                    <span>Current plan</span>
-                    <strong>{subscription.plan_name}</strong>
-                    <p>Next detail: {subscription.next_detail_date ? new Date(subscription.next_detail_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD'}</p>
-                  </div>
-                  <StatusBadge status={subscription.status} />
-                </div>
-              )}
-              <div className="plan-grid">
-                {MEMBERSHIPS.map((plan, i) => {
-                  const isCurrent = subscription?.plan_name === plan.name;
-                  return (
-                    <div key={plan.name} className={`plan-card ${i === 1 ? 'plan-featured' : ''} ${isCurrent ? 'plan-current' : ''}`}>
-                      {i === 1 && <div className="plan-badge">Most Popular</div>}
-                      {isCurrent && <div className="plan-badge plan-badge-active">Your Plan</div>}
-                      <h3>{plan.name}</h3>
-                      <div className="plan-price">{money(plan.price)}<small>/month</small></div>
-                      <p>{plan.desc}</p>
-                      <ul>
-                        {plan.features.map(f => <li key={f}><CheckCircle size={13} /> {f}</li>)}
-                      </ul>
-                      <div className="plan-savings-note">
-                        <Shield size={12} /> {plan.savings}
-                      </div>
-                      {!isCurrent && (
-                        <button
-                          className={i === 1 ? 'btn-primary btn-full' : 'btn-outline btn-full'}
-                          onClick={() => handleSubscribe(plan)}
-                        >
-                          {subscription ? 'Switch to this plan' : `Join ${plan.name}`}
-                        </button>
-                      )}
-                      {isCurrent && (
-                        <button
-                          className="btn-outline btn-full btn-cancel"
-                          onClick={async () => {
-                            await supabase.from('subscriptions').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', subscription.id);
-                            setSubscription(null);
-                          }}
-                        >
-                          Cancel Membership
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
-
-          {/* BILLING */}
-          {tab === 'billing' && (
-            <div className="tab-content">
-              <h2>Billing & Savings</h2>
-              <p className="tab-sub">Track what you've invested in your vehicle's care — and how much it's protecting your investment.</p>
-
-              {/* Savings Hero */}
-              <div className="billing-savings-card">
-                <div className="billing-savings-header">
-                  <div>
-                    <h3><TrendingUp size={20} /> Lifetime Investment Analysis</h3>
-                    <p>Your vehicle is one of your largest assets. Professional care protects its value.</p>
-                  </div>
-                </div>
-                {lifetimeSpend > 0 ? (
-                  <>
-                    <SavingsBar spent={lifetimeSpend} savings={lifetimeSavings} />
-                    <div className="savings-breakdown">
-                      <h4>How we calculate your savings</h4>
-                      <div className="savings-items">
-                        <div className="savings-item">
-                          <span>Paint fading prevention</span>
-                          <strong>{money(Math.round(lifetimeSpend * 1.5))}</strong>
-                        </div>
-                        <div className="savings-item">
-                          <span>Interior wear protection</span>
-                          <strong>{money(Math.round(lifetimeSpend * 0.8))}</strong>
-                        </div>
-                        <div className="savings-item">
-                          <span>Resale value boost (est.)</span>
-                          <strong>{money(Math.round(lifetimeSpend * 1.0))}</strong>
-                        </div>
-                        <div className="savings-item">
-                          <span>Contaminant damage avoided</span>
-                          <strong>{money(Math.round(lifetimeSpend * 0.5))}</strong>
-                        </div>
-                        <div className="savings-item savings-total">
-                          <span>Total estimated savings</span>
-                          <strong>{money(lifetimeSavings)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="empty-state">
-                    <TrendingUp size={36} />
-                    <p>Start your Luxe journey to track your vehicle's protection value.</p>
-                    <button className="btn-primary" onClick={() => setShowBook(true)}>Book Your First Detail</button>
-                  </div>
-                )}
-              </div>
-
-              {/* Payment history */}
-              <div className="payment-history">
-                <h3>Payment History</h3>
-                {payments.length === 0 ? (
-                  <p className="empty-text">No payments on record yet.</p>
-                ) : (
-                  <div className="payment-list">
-                    {payments.map(p => (
-                      <div key={p.id} className="payment-row">
-                        <div className="payment-icon"><CreditCard size={16} /></div>
-                        <div className="payment-info">
-                          <strong>{p.description ?? 'Service Payment'}</strong>
-                          <span>{new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                        </div>
-                        <div className="payment-amount">
-                          <strong>{money(p.amount)}</strong>
-                          <StatusBadge status={p.status} />
-                        </div>
-                      </div>
-                    ))}
-                    <div className="payment-total-row">
-                      <span>Total invested in care</span>
-                      <strong>{money(lifetimeSpend)}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Book Modal */}
-      {showBook && (
-        <div className="modal-overlay" onClick={() => setShowBook(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Book a Service</h3>
-              <button onClick={() => setShowBook(false)}><X size={20} /></button>
-            </div>
-            {bookDone ? (
-              <div className="modal-success">
-                <CheckCircle size={48} />
-                <h4>Appointment Requested!</h4>
-                <p>We'll be in touch to confirm your booking.</p>
-              </div>
-            ) : (
-              <form className="modal-form" onSubmit={handleBookSubmit}>
-                <div className="form-group">
-                  <label>Package</label>
-                  <div className="pkg-choices">
-                    {PACKAGES.map((p, i) => (
-                      <button type="button" key={p.name} className={`pkg-choice ${bookPkg === i ? 'pkg-active' : ''}`} onClick={() => setBookPkg(i)}>
-                        <span>{p.name}</span>
-                        <strong>{money(p.price)}+</strong>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Vehicle Size</label>
-                  <select value={bookVehicle} onChange={e => setBookVehicle(Number(e.target.value))}>
-                    {VEHICLE_SIZES.map((v, i) => (
-                      <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
-                    ))}
-                  </select>
-                </div>
-<div className="form-group">
-  <label>Appointment Date</label>
-
-  <input
-    type="date"
-    required
-    min={new Date().toISOString().split('T')[0]}
-    value={bookDate}
-    onChange={e => loadAvailableTimes(e.target.value)}
-  />
-</div>
-
-{bookDate && (
-  <div className="form-group">
-    <label>Available Times</label>
-
-    {timesLoading ? (
-      <p>Checking available times...</p>
-    ) : availableTimes.length === 0 ? (
-      <p style={{ color: '#999' }}>
-        No appointments available on this date.
-      </p>
-    ) : (
-      <div className="mini-addons">
-        {availableTimes.map(time => (
-          <button
-            key={time}
-            type="button"
-            className={`mini-addon ${
-              bookTime === time ? 'mini-active' : ''
-            }`}
-            onClick={() => setBookTime(time)}
-          >
-            {new Date(`2000-01-01T${time}:00`).toLocaleTimeString(
-              'en-US',
-              {
-                hour: 'numeric',
-                minute: '2-digit',
-              }
-            )}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-)}
-                
-                <div className="form-group">
-                  <label>Add-Ons</label>
-                  <div className="mini-addons">
-                    {ADD_ONS.map(([name, price], i) => (
-                      <button type="button" key={name} className={`mini-addon ${bookAddOns.includes(i) ? 'mini-active' : ''}`} onClick={() => setBookAddOns(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}>
-                        {name}<span>+${price}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Notes</label>
-                  <textarea rows={2} placeholder="Anything about your vehicle we should know..." value={bookNotes} onChange={e => setBookNotes(e.target.value)} />
-                </div>
-                <div className="modal-total">
-                  <span>Estimated total</span>
-                  <strong>{money(PACKAGES[bookPkg].price + VEHICLE_SIZES[bookVehicle].extra + bookAddOns.reduce((s, i) => s + ADD_ONS[i][1], 0))}</strong>
-                </div>
-                <button type="submit" className="btn-primary btn-full" disabled={bookSubmitting}>
-                  {bookSubmitting ? 'Opening Square...' : 'Continue to Payment'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
+        </section>
       )}
+
+      {/* CONTACT - always visible at bottom */}
+      <section id="contact" className="contact-section">
+        <FadeIn className="contact-left">
+          <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
+          <h2>Your vehicle.<br /><em>Our standard.</em></h2>
+          <p>Ready to elevate the finish? Let's build the right service for your vehicle.</p>
+        </FadeIn>
+        <FadeIn delay={150} className="contact-right">
+          <a href="tel:3309903956" className="contact-link">330-990-3956</a>
+          <a href="mailto:support@northsplash.com" className="contact-link">support@northsplash.com</a>
+          <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
+        </FadeIn>
+      </section>
+
+      <Footer onScrollTo={scrollTo} />
     </div>
   );
 }
