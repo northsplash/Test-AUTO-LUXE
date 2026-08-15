@@ -1,1217 +1,718 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Calendar, CreditCard, UserCheck, Car,
-  TrendingUp, BarChart2, LogOut, Menu, X, Plus, Trash2,
-  Eye, DollarSign, Activity, ChevronUp, Globe, Archive,
-  BriefcaseBusiness, CalendarClock, Clock3, PackageSearch, Settings2,
-  Target, MapPinned, ListChecks, Wrench, FileText, ShieldCheck, Bell,
-  ClipboardCheck, ScrollText, UserCog, Gauge
+  ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
+  Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { signOut } from '@/lib/auth';
+import { Navigation } from '@/components/Navigation';
+import { Footer } from '@/components/Footer';
+import { useScrollAnimation } from '@/hooks/useScrollAnimation';
+import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import { Profile, Appointment, Payment, Employee } from '@/lib/supabase';
-import { money } from '@/lib/data';
-import BusinessSuite, { BusinessSection } from './BusinessSuite';
-import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
-import OperationsExpansion, { ExpansionSection } from './OperationsExpansion';
-import Phase300Suite from './Phase300Suite';
+import { trackPageView } from '@/lib/auth';
 
-type AdminTab =
-  | 'dashboard'
-  | 'customers'
-  | 'appointments'
-  | 'schedule'
-  | 'availability'
-  | 'archived'
-  | 'employees'
-  | 'recruiting'
-  | 'staff_schedule'
-  | 'timeclock'
-  | 'finance'
-  | 'sales'
-  | 'inventory'
-  | 'pay_settings'
-  | 'job_assignments'
-  | 'leads'
-  | 'territories'
-  | 'tasks'
-  | 'equipment'
-  | 'documents'
-  | 'reports'
-  | 'permissions'
-  | 'notifications'
-  | 'time_off'
-  | 'payroll_approval'
-  | 'audit'
-  | 'payments'
-  | 'visitors'
-  | 'command_center' | 'crm' | 'dispatch' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'retention' | 'continuity';
+type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
-function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
+const TABS: { id: TabId; label: string; Icon: any }[] = [
+  { id: 'services', label: 'Services', Icon: Car },
+  { id: 'packages', label: 'Packages', Icon: Package },
+  { id: 'protection', label: 'Protection', Icon: Gem },
+  { id: 'gallery', label: 'Gallery', Icon: Camera },
+  { id: 'membership', label: 'Membership', Icon: Crown },
+  { id: 'booking', label: 'Book', Icon: Calendar },
+  { id: 'faq', label: 'FAQ', Icon: HelpCircle },
+];
+
+function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useScrollAnimation();
   return (
-    <div className={`admin-stat ${color}`}>
-      <div className="admin-stat-header">
-        <span>{label}</span>
-        <div className="admin-stat-icon"><Icon size={18} /></div>
-      </div>
-      <strong>{value}</strong>
-      {trend && (
-        <div className="admin-stat-trend">
-          <ChevronUp size={14} /> {trend}
-        </div>
-      )}
+    <div
+      ref={ref as React.Ref<HTMLDivElement>}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'none' : 'translateY(32px)',
+        transition: `opacity 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending: 'badge-yellow', confirmed: 'badge-blue', in_progress: 'badge-purple',
-    completed: 'badge-green', cancelled: 'badge-red', active: 'badge-green',
-    paused: 'badge-yellow', inactive: 'badge-gray',
-    detailer: 'badge-blue', d2d_agent: 'badge-purple', manager: 'badge-green',
-  };
-  return <span className={`status-badge ${colors[status] ?? 'badge-gray'}`}>{status.replace('_', ' ')}</span>;
-}
-
-export default function Admin() {
-  const { user, profile, loading } = useAuth();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState<AdminTab>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [navGroupsOpen,setNavGroupsOpen]=useState<Record<string,boolean>>({core:true,customers:true,people:false,field:false,money:false,operations:false,system:false});
-
-  const [customers, setCustomers] = useState<Profile[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [visits, setVisits] = useState<{ page: string; count: number }[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [availability, setAvailability] = useState<any[]>([]);
-const [availabilityForm, setAvailabilityForm] = useState({
-  date: '',
-  start_time: '09:00',
-  end_time: '17:00',
-  slot_minutes: 60,
-  is_available: true,
-});
-
-  // Employee form
-  const [showEmpForm, setShowEmpForm] = useState(false);
-  const [empForm, setEmpForm] = useState({ name: '', role: 'detailer', phone: '', email: '', employment_level: 1, pay_type: 'hourly', hourly_rate: 17, weekly_base: 0, commission_rate: 0 });
-  const [empSubmitting, setEmpSubmitting] = useState(false);
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
+  const [serviceFilter, setServiceFilter] = useState('All');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState(1);
+  const [vehicle, setVehicle] = useState(0);
+  const [condition, setCondition] = useState('Light');
+  const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
+  const [formSent, setFormSent] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', notes: '' });
+  const [heroVisible, setHeroVisible] = useState(false);
+  const [counterVal, setCounterVal] = useState(0);
+  const tabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loading && (!user || profile?.role !== 'admin')) {
-      navigate('/portal');
+    setTimeout(() => setHeroVisible(true), 100);
+    trackPageView('/').catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (heroVisible) {
+      const target = 500;
+      const duration = 2000;
+      const step = target / (duration / 16);
+      let current = 0;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        setCounterVal(Math.round(current));
+        if (current >= target) clearInterval(timer);
+      }, 16);
+      return () => clearInterval(timer);
     }
-  }, [user, profile, loading, navigate]);
+  }, [heroVisible]);
 
-  useEffect(() => {
-    if (!user || profile?.role !== 'admin') return;
-    (async () => {
-      const [custs, apts, pays, emps, avail] = await Promise.all([
-  supabase
-    .from('profiles')
-    .select('*')
-    .eq('role', 'customer')
-    .order('created_at', { ascending: false }),
+  const scrollTo = (id: string) => {
+    if (id === 'booking') {
+      setActiveTab('booking');
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else if (id === 'contact') {
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setActiveTab(id as TabId);
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  };
 
-  supabase
-    .from('appointments')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(100),
+  const estimated = useMemo(() => {
+    const base = PACKAGES[selectedPackage].price;
+    const size = VEHICLE_SIZES[vehicle].extra;
+    const condExtra = condition === 'Moderate' ? 35 : condition === 'Heavy' ? 75 : condition === 'Severe' ? 125 : 0;
+    const extras = selectedAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
+    return base + size + condExtra + extras;
+  }, [selectedPackage, vehicle, condition, selectedAddOns]);
 
-  supabase
-    .from('payments')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(200),
+  const toggleAddOn = (i: number) => {
+    setSelectedAddOns(c => c.includes(i) ? c.filter(x => x !== i) : [...c, i]);
+  };
 
-  supabase
-    .from('employees')
-    .select('*')
-    .order('created_at', { ascending: false }),
+  const filtered = serviceFilter === 'All' ? SERVICES : SERVICES.filter(s => s.category === serviceFilter);
 
-  supabase
-    .from('availability')
-    .select('*')
-    .order('date', { ascending: true }),
-]);
-
-      // Aggregate site visits by page
-      const { data: visitData } = await supabase
-        .from('site_visits')
-        .select('page')
-        .gte('visited_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      const pageMap: Record<string, number> = {};
-      (visitData ?? []).forEach(v => { pageMap[v.page] = (pageMap[v.page] ?? 0) + 1; });
-      const visitAgg = Object.entries(pageMap).map(([page, count]) => ({ page, count })).sort((a, b) => b.count - a.count);
-
-      setCustomers(custs.data ?? []);
-      setAppointments(apts.data ?? []);
-      setPayments(pays.data ?? []);
-      setEmployees(emps.data ?? []);
-      setAvailability(avail.data ?? []);
-      setVisits(visitAgg);
-      setDataLoading(false);
-    })();
-  }, [user, profile]);
-
-  const totalRevenue = payments.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
-  const monthRevenue = payments.filter(p => {
-    const d = new Date(p.created_at);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && p.status === 'completed';
-  }).reduce((s, p) => s + p.amount, 0);
-
-  const detailers = employees.filter(e => e.role === 'detailer');
-  const d2dAgents = employees.filter(e => e.role === 'd2d_agent');
-
-  const handleAddEmployee = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmpSubmitting(true);
-    const { data, error } = await supabase.from('employees').insert(empForm).select().single();
-    if (error) {
-      alert(error.message);
-      setEmpSubmitting(false);
-      return;
-    }
-    if (data) setEmployees(prev => [data, ...prev]);
-    setEmpSubmitting(false);
-    setShowEmpForm(false);
-    setEmpForm({ name: '', role: 'detailer', phone: '', email: '', employment_level: 1, pay_type: 'hourly', hourly_rate: 17, weekly_base: 0, commission_rate: 0 });
+    await supabase.from('appointments').insert({
+      service_name: PACKAGES[selectedPackage].name,
+      package_name: PACKAGES[selectedPackage].name,
+      add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
+      vehicle_info: formData.vehicle,
+      price: estimated,
+      notes: formData.notes,
+      status: 'pending',
+    }).catch(() => {});
+    setFormSent(true);
   };
 
-  const handleDeleteEmployee = async (id: string) => {
-    await supabase.from('employees').delete().eq('id', id);
-    setEmployees(prev => prev.filter(e => e.id !== id));
+  const openTab = (tab: TabId) => {
+    setActiveTab(tab);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   };
 
-  const handleUpdateAptStatus = async (id: string, status: string) => {
-    await supabase.from('appointments').update({ status, ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}) }).eq('id', id);
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
+  const closeTab = () => {
+    setActiveTab(null);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
-
-const handleArchiveAppointment = async (id: string) => {
-  const { error } = await supabase
-    .from('appointments')
-    .update({ archived: true })
-    .eq('id', id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  setAppointments(prev =>
-    prev.map(a =>
-      a.id === id ? { ...a, archived: true } : a
-    )
-  );
-};
-  
-const handleSaveAvailability = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  if (!availabilityForm.date) return;
-
-  const { data, error } = await supabase
-    .from('availability')
-    .upsert(
-      {
-        date: availabilityForm.date,
-        start_time: availabilityForm.start_time,
-        end_time: availabilityForm.end_time,
-        slot_minutes: availabilityForm.slot_minutes,
-        is_available: availabilityForm.is_available,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'date',
-      }
-    )
-    .select()
-    .single();
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  setAvailability(prev => {
-    const exists = prev.some(a => a.date === data.date);
-
-    if (exists) {
-      return prev
-        .map(a => a.date === data.date ? data : a)
-        .sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    return [...prev, data].sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-  });
-
-  setAvailabilityForm({
-    date: '',
-    start_time: '09:00',
-    end_time: '17:00',
-    slot_minutes: 60,
-    is_available: true,
-  });
-};
-
-const handleDeleteAvailability = async (id: string) => {
-  const { error } = await supabase
-    .from('availability')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  setAvailability(prev => prev.filter(a => a.id !== id));
-};
-  
-  const handleSignOut = async () => {
-    await signOut().catch(() => {});
-    navigate('/');
-  };
-
-  if (loading || dataLoading) {
-    return <div className="portal-loading"><div className="portal-spinner" /><p>Loading admin panel...</p></div>;
-  }
-
-  if (profile?.role !== 'admin') {
-    return <div className="portal-loading"><p>Access denied. Admin only.</p><Link to="/portal">Go to Portal</Link></div>;
-  }
-
-  const navItems = [
-    { id: 'dashboard' as AdminTab, label: 'Dashboard', Icon: LayoutDashboard },
-    { id: 'customers' as AdminTab, label: 'Customers', Icon: Users },
-    { id: 'appointments' as AdminTab, label: 'Appointments', Icon: Calendar },
-    { id: 'schedule' as AdminTab, label: 'Customer Schedule', Icon: CalendarClock },
-    { id: 'availability' as AdminTab, label: 'Availability', Icon: Calendar },
-    { id: 'archived' as AdminTab, label: 'Archived Details', Icon: Archive },
-    { id: 'recruiting' as AdminTab, label: 'Recruiting', Icon: BriefcaseBusiness },
-    { id: 'employees' as AdminTab, label: 'Team', Icon: UserCheck },
-    { id: 'staff_schedule' as AdminTab, label: 'Employee Schedule', Icon: CalendarClock },
-    { id: 'timeclock' as AdminTab, label: 'Time Clock', Icon: Clock3 },
-    { id: 'payroll_approval' as AdminTab, label: 'Timesheet Approval', Icon: ClipboardCheck },
-    { id: 'job_assignments' as AdminTab, label: 'Job Assignment', Icon: ListChecks },
-    { id: 'sales' as AdminTab, label: 'D2D Sales', Icon: TrendingUp },
-    { id: 'leads' as AdminTab, label: 'Leads Tracker', Icon: Target },
-    { id: 'territories' as AdminTab, label: 'Territories', Icon: MapPinned },
-    { id: 'finance' as AdminTab, label: 'Finance & Payroll', Icon: DollarSign },
-    { id: 'reports' as AdminTab, label: 'Reports & Analytics', Icon: Gauge },
-    { id: 'inventory' as AdminTab, label: 'Inventory', Icon: PackageSearch },
-    { id: 'equipment' as AdminTab, label: 'Equipment & Assets', Icon: Wrench },
-    { id: 'tasks' as AdminTab, label: 'Tasks & Operations', Icon: ListChecks },
-    { id: 'time_off' as AdminTab, label: 'Time-Off Requests', Icon: CalendarClock },
-    { id: 'documents' as AdminTab, label: 'Document Vault', Icon: FileText },
-    { id: 'notifications' as AdminTab, label: 'Notifications', Icon: Bell },
-    { id: 'pay_settings' as AdminTab, label: 'Pay Structure', Icon: Settings2 },
-    { id: 'permissions' as AdminTab, label: 'Portal Permissions', Icon: ShieldCheck },
-    { id: 'audit' as AdminTab, label: 'Audit Log', Icon: ScrollText },
-    { id: 'command_center' as AdminTab, label: 'Command Center', Icon: Gauge },
-    { id: 'crm' as AdminTab, label: 'Customer CRM', Icon: Users },
-    { id: 'dispatch' as AdminTab, label: 'Dispatch Board', Icon: CalendarClock },
-    { id: 'fleet' as AdminTab, label: 'Fleet Accounts', Icon: Car },
-    { id: 'locations' as AdminTab, label: 'Locations', Icon: Globe },
-    { id: 'marketing' as AdminTab, label: 'Marketing', Icon: TrendingUp },
-    { id: 'automations' as AdminTab, label: 'Automations', Icon: Settings2 },
-    { id: 'approvals' as AdminTab, label: 'Approvals', Icon: ClipboardCheck },
-    { id: 'incidents' as AdminTab, label: 'Incidents', Icon: ShieldCheck },
-    { id: 'training' as AdminTab, label: 'Training', Icon: FileText },
-    { id: 'purchasing' as AdminTab, label: 'Purchasing', Icon: PackageSearch },
-    { id: 'communications' as AdminTab, label: 'Communications', Icon: Bell },
-    { id: 'retention' as AdminTab, label: 'Retention', Icon: Target },
-    { id: 'continuity' as AdminTab, label: 'Backups & Exports', Icon: Archive },
-    { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
-    { id: 'visitors' as AdminTab, label: 'Site Visitors', Icon: Globe },
-  ];
-
-  const navGroups = [
-    {id:'core',label:'Overview',items:['dashboard','command_center']},
-    {id:'customers',label:'Customers & Booking',items:['customers','crm','appointments','schedule','availability','archived','job_assignments','dispatch','fleet']},
-    {id:'people',label:'People & Workforce',items:['recruiting','employees','staff_schedule','timeclock','time_off','payroll_approval','training']},
-    {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
-    {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments','marketing','retention']},
-    {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','communications','approvals']},
-    {id:'system',label:'System & Security',items:['permissions','automations','locations','continuity','audit','visitors']},
-  ];
-
-  // Monthly cashflow chart data (last 6 months)
-  const cashflowData = (() => {
-    const months: { label: string; revenue: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const label = d.toLocaleDateString('en-US', { month: 'short' });
-      const revenue = payments.filter(p => {
-        const pd = new Date(p.created_at);
-        return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear() && p.status === 'completed';
-      }).reduce((s, p) => s + p.amount, 0);
-      months.push({ label, revenue });
-    }
-    return months;
-  })();
-  const maxRevenue = Math.max(...cashflowData.map(m => m.revenue), 1);
 
   return (
-    <div className="portal-layout">
-      <aside className={`portal-sidebar admin-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-header">
-          <Link to="/" className="sidebar-brand">
-            <div className="brand-mark brand-mark-sm">NS</div>
-            <div><strong>ADMIN PANEL</strong><small>NORTH SPLASH</small></div>
-          </Link>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
+    <div className="site">
+      <Navigation onScrollTo={scrollTo} isHomePage />
+
+      {/* HERO */}
+      <section id="home" className="hero">
+        <div className="hero-bg">
+          <img src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+          <div className="hero-gradient" />
+          <div className="hero-noise" />
         </div>
 
-        <div className="sidebar-user">
-          <div className="sidebar-avatar admin-avatar">A</div>
-          <div><p>{profile?.full_name ?? 'Admin'}</p><span>Administrator</span></div>
-        </div>
+        <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>
+          <p className="eyebrow eyebrow-glow">PREMIUM AUTOMOTIVE CARE</p>
+          <h1 className="hero-title">
+            Elevate<br />
+            <em>Your Drive.</em>
+          </h1>
+          <p className="hero-copy">
+            A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
+          </p>
+          <div className="hero-actions">
+            <button className="btn-primary" onClick={() => scrollTo('booking')}>
+              Book Your Detail <ArrowRight size={16} />
+            </button>
+            <button className="btn-ghost" onClick={() => scrollTo('services')}>
+              Explore Services
+            </button>
+          </div>
 
-        <nav className="sidebar-nav grouped-sidebar">
-          {navGroups.map(g=><div className="nav-group" key={g.id}><button className="nav-group-title" onClick={()=>setNavGroupsOpen(p=>({...p,[g.id]:!p[g.id]}))}><span>{g.label}</span><ChevronUp size={14} className={navGroupsOpen[g.id]?'':'nav-chevron-closed'}/></button>{navGroupsOpen[g.id]&&g.items.map(id=>{const item=navItems.find(n=>n.id===id);if(!item)return null;const {label,Icon}=item;return <button key={id} className={`sidebar-item ${tab===id?'sidebar-active':''}`} onClick={()=>{setTab(id as AdminTab);setSidebarOpen(false)}}><Icon size={18}/>{label}</button>})}</div>)}
-        </nav>
-
-        <div className="sidebar-footer">
-          <Link to="/portal" className="sidebar-item"><Eye size={18} /> Customer View</Link>
-          <Link to="/" className="sidebar-item"><Globe size={18} /> View Site</Link>
-          <button className="sidebar-item sidebar-signout" onClick={handleSignOut}><LogOut size={18} /> Sign Out</button>
-        </div>
-      </aside>
-
-      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
-
-      <main className="portal-main">
-        <div className="portal-topbar">
-          <button className="sidebar-toggle" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
-          <div className="topbar-title">
-            <h1>{navItems.find(n => n.id === tab)?.label}</h1>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <strong>{counterVal}+</strong>
+              <span>Vehicles Detailed</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>5★</strong>
+              <span>Client Rating</span>
+            </div>
+            <div className="hero-stat-divider" />
+            <div className="hero-stat">
+              <strong>3</strong>
+              <span>Coating Tiers</span>
+            </div>
           </div>
         </div>
 
-        <div className="portal-content">
+        <button className="hero-scroll" onClick={() => scrollTo('services')}>
+          <ChevronDown size={22} />
+        </button>
+      </section>
 
-          {/* DASHBOARD */}
-          {tab === 'dashboard' && (
-            <div className="admin-dashboard">
-              <div className="admin-stats-row">
-                <StatCard label="Total Revenue" value={money(totalRevenue)} icon={DollarSign} color="stat-gold" />
-                <StatCard label="This Month" value={money(monthRevenue)} icon={TrendingUp} color="stat-green" />
-                <StatCard label="Customers" value={String(customers.length)} icon={Users} />
-                <StatCard label="Appointments" value={String(appointments.length)} icon={Calendar} />
-                <StatCard label="Team Members" value={String(employees.length)} icon={UserCheck} />
-                <StatCard label="Site Visits (30d)" value={String(visits.reduce((s, v) => s + v.count, 0))} icon={Activity} />
-              </div>
-
-              {/* Cashflow Chart */}
-              <div className="admin-card">
-                <div className="admin-card-header">
-                  <h3><BarChart2 size={18} /> Monthly Cash Flow</h3>
+      {/* INTRO */}
+      <section className="intro-section">
+        <FadeIn>
+          <p className="eyebrow">THE LUXE STANDARD</p>
+          <h2>Clean is the beginning.<br /><em>Exceptional is the goal.</em></h2>
+        </FadeIn>
+        <FadeIn delay={150} className="intro-right">
+          <p>North Splash Auto Luxe brings a premium mindset to automotive care. Every service is built around the condition of your vehicle, the finish you want, and the experience you expect.</p>
+          <div className="intro-pillars">
+            {[
+              [Sparkles, 'Precision Detail', 'Every panel, every surface'],
+              [Shield, 'Long-Term Protection', 'Ceramic & sealant options'],
+              [Star, 'White Glove Service', 'Concierge available'],
+              [Zap, 'Fast Turnaround', 'Most services same-day'],
+            ].map(([Icon, title, sub]) => (
+              <div className="intro-pillar" key={String(title)}>
+                <div className="pillar-icon"><Icon size={18} /></div>
+                <div>
+                  <strong>{String(title)}</strong>
+                  <span>{String(sub)}</span>
                 </div>
-                <div className="cashflow-chart">
-                  {cashflowData.map(m => (
-                    <div key={m.label} className="cashflow-bar-wrap">
-                      <div className="cashflow-amount">{m.revenue > 0 ? money(m.revenue) : '—'}</div>
-                      <div className="cashflow-bar-bg">
-                        <div
-                          className="cashflow-bar-fill"
-                          style={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
-                        />
-                      </div>
-                      <div className="cashflow-label">{m.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="admin-two-col">
-                {/* Recent appointments */}
-                <div className="admin-card">
-                  <div className="admin-card-header">
-                    <h3><Calendar size={18} /> Recent Appointments</h3>
-                    <button className="btn-outline btn-sm" onClick={() => setTab('appointments')}>View All</button>
-                  </div>
-                  <div className="admin-table">
-                    {appointments.slice(0, 5).map(a => (
-                      <div key={a.id} className="admin-row">
-                        <div className="admin-row-main">
-                          <strong>{a.service_name}</strong>
-<span>
-  {a.scheduled_at
-    ? new Date(a.scheduled_at).toLocaleString('en-US', {
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : 'Not scheduled'}
-</span>                        </div>
-                        <div className="admin-row-right">
-                          <StatusBadge status={a.status} />
-                          <strong>{money(a.price)}</strong>
-                        </div>
-                      </div>
-                    ))}
-                    {appointments.length === 0 && <p className="empty-text">No appointments yet.</p>}
-                  </div>
-                </div>
-
-                {/* Detailer breakdown */}
-                <div className="admin-card">
-                  <div className="admin-card-header">
-                    <h3><UserCheck size={18} /> Team Overview</h3>
-                    <button className="btn-outline btn-sm" onClick={() => setTab('employees')}>View All</button>
-                  </div>
-                  <div className="team-overview">
-                    <div className="team-stat">
-                      <Car size={18} />
-                      <div>
-                        <strong>{detailers.length}</strong>
-                        <span>Detailers</span>
-                      </div>
-                    </div>
-                    <div className="team-stat">
-                      <Users size={18} />
-                      <div>
-                        <strong>{d2dAgents.length}</strong>
-                        <span>D2D Agents</span>
-                      </div>
-                    </div>
-                    <div className="team-stat">
-                      <UserCheck size={18} />
-                      <div>
-                        <strong>{employees.filter(e => e.role === 'manager').length}</strong>
-                        <span>Managers</span>
-                      </div>
-                    </div>
-                  </div>
-                  {employees.slice(0, 4).map(e => (
-                    <div key={e.id} className="admin-row">
-                      <div className="admin-row-main">
-                        <strong>{e.name}</strong>
-                        <StatusBadge status={e.role} /><span className="status-badge badge-gray">Level {e.employment_level ?? 1}</span>
-                      </div>
-                      <div className="admin-row-right">
-                        <span>{e.jobs_completed} jobs</span>
-                      </div>
-                    </div>
-                  ))}
-                  {employees.length === 0 && <p className="empty-text">No team members yet.</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* CUSTOMERS */}
-          {tab === 'customers' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div><h2>Customers</h2><p>{customers.length} registered customers</p></div>
-              </div>
-              <div className="admin-card">
-                <div className="data-table">
-                  <div className="data-table-head">
-                    <span>Name</span><span>Email</span><span>Joined</span><span>Status</span>
-                  </div>
-                  {customers.map(c => (
-                    <div key={c.id} className="data-table-row">
-                      <div className="dt-cell dt-name">
-                        <div className="dt-avatar">{c.full_name?.[0]?.toUpperCase() ?? '?'}</div>
-                        <div>
-                          <strong>{c.full_name ?? 'Unknown'}</strong>
-                          {c.phone && <span>{c.phone}</span>}
-                        </div>
-                      </div>
-                      <span className="dt-cell">{c.email ?? '—'}</span>
-                      <span className="dt-cell">{new Date(c.created_at).toLocaleDateString()}</span>
-                      <span className="dt-cell"><StatusBadge status="active" /></span>
-                    </div>
-                  ))}
-                  {customers.length === 0 && <p className="empty-text">No customers yet.</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* APPOINTMENTS */}
-          {tab === 'appointments' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div><h2>All Appointments</h2><p>{appointments.length} total</p></div>
-              </div>
-              <div className="admin-card">
-                <div className="data-table">
-                  <div className="data-table-head">
-                    <span>Service</span><span>Price</span><span>Status</span><span>Date</span><span>Actions</span>
-                  </div>
-                  {appointments
-  .filter(a => !a.archived)
-  .map(a => (
-                    <div key={a.id} className="data-table-row">
-                      <div className="dt-cell dt-service">
-                        <strong>{a.service_name}</strong>
-                        {a.add_ons.length > 0 && <span>+{a.add_ons.length} add-on{a.add_ons.length > 1 ? 's' : ''}</span>}
-                      </div>
-                      <span className="dt-cell"><strong>{money(a.price)}</strong></span>
-                      <span className="dt-cell"><StatusBadge status={a.status} /></span>
-<span className="dt-cell">
-  {a.scheduled_at
-    ? new Date(a.scheduled_at).toLocaleString('en-US', {
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : 'Not scheduled'}
-</span>                      <div className="dt-cell dt-actions">
-                        {a.status !== 'completed' && a.status !== 'cancelled' && (
-                          <>
-                            <button className="btn-sm btn-outline" onClick={() => handleUpdateAptStatus(a.id, 'confirmed')}>Confirm</button>
-                            <button
-  className="btn-sm btn-outline"
-  onClick={() => handleUpdateAptStatus(a.id, 'cancelled')}
->
-  Decline
-</button>
-
-                            <button
-  className="btn-sm btn-outline"
-  onClick={() => handleArchiveAppointment(a.id)}
->
-  Archive
-</button>
-                            
-                            <button className="btn-sm btn-primary" onClick={() => handleUpdateAptStatus(a.id, 'completed')}>Complete</button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {appointments.length === 0 && <p className="empty-text">No appointments yet.</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-{/* ARCHIVED DETAILS */}
-{tab === 'archived' && (
-  <div className="tab-content">
-    <div className="tab-header">
-      <div>
-        <h2>Archived Details</h2>
-        <p>Past or cleared appointments are stored here.</p>
-      </div>
-    </div>
-
-    <div className="admin-card">
-      {appointments.filter(a => a.archived).length === 0 ? (
-        <p className="empty-text">
-          No archived appointments yet.
-        </p>
-      ) : (
-        <div className="data-table">
-          {appointments
-            .filter(a => a.archived)
-            .map(a => (
-              <div key={a.id} className="data-table-row">
-                <div className="dt-cell">
-                  <strong>{a.service_name}</strong>
-
-                  {a.scheduled_at && (
-                    <span>
-                      {new Date(a.scheduled_at).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-
-                <span className="dt-cell">
-                  {money(a.price)}
-                </span>
-
-                <span className="dt-cell">
-                  <StatusBadge status={a.status} />
-                </span>
-
-                <button
-                  className="btn-sm btn-outline"
-                  onClick={async () => {
-                    const { error } = await supabase
-                      .from('appointments')
-                      .update({ archived: false })
-                      .eq('id', a.id);
-
-                    if (error) {
-                      alert(error.message);
-                      return;
-                    }
-
-                    setAppointments(prev =>
-                      prev.map(item =>
-                        item.id === a.id
-                          ? { ...item, archived: false }
-                          : item
-                      )
-                    );
-                  }}
-                >
-                  Restore
-                </button>
               </div>
             ))}
-        </div>
-      )}
-    </div>
-  </div>
-)}
-          
-{/* SCHEDULE */}
-{tab === 'schedule' && (
-  <div className="tab-content">
-    <div className="tab-header">
-      <div>
-        <h2>Booking Schedule</h2>
-        <p>See who is booked, when they are coming, and what service they booked.</p>
-      </div>
-    </div>
+          </div>
+        </FadeIn>
+      </section>
 
-    <div className="admin-card">
-      <div className="data-table">
-        <div className="data-table-head">
-          <span>Customer</span>
-          <span>Service</span>
-          <span>Date & Time</span>
-          <span>Price</span>
-          <span>Status</span>
-        </div>
-
-        {appointments
-          .filter(a => a.scheduled_at && a.status !== 'cancelled')
-          .sort(
-            (a, b) =>
-              new Date(a.scheduled_at!).getTime() -
-              new Date(b.scheduled_at!).getTime()
-          )
-          .map(a => {
-            const customer = customers.find(c => c.id === a.user_id);
-
-            return (
-              <div key={a.id} className="data-table-row">
-                <div className="dt-cell">
-                  <strong>{customer?.full_name ?? 'Customer'}</strong>
-                  <span>{customer?.email ?? ''}</span>
-                </div>
-
-                <div className="dt-cell">
-                  <strong>{a.service_name}</strong>
-
-                  {a.add_ons?.length > 0 && (
-                    <span>
-                      + {a.add_ons.join(', ')}
-                    </span>
-                  )}
-                </div>
-
-                <div className="dt-cell">
-                  <strong>
-                    {new Date(a.scheduled_at!).toLocaleDateString(
-                      'en-US',
-                      {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      }
-                    )}
-                  </strong>
-
-                  <span>
-                    {new Date(a.scheduled_at!).toLocaleTimeString(
-                      'en-US',
-                      {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      }
-                    )}
-                  </span>
-                </div>
-
-                <span className="dt-cell">
-                  <strong>{money(a.price)}</strong>
-                </span>
-
-                <span className="dt-cell">
-                  <StatusBadge status={a.status} />
-                </span>
-              </div>
-            );
-          })}
-
-        {appointments.filter(
-          a => a.scheduled_at && a.status !== 'cancelled'
-        ).length === 0 && (
-          <p className="empty-text">
-            No scheduled appointments yet.
-          </p>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-          
-{/* AVAILABILITY */}
-{tab === 'availability' && (
-  <div className="tab-content">
-    <div className="tab-header">
-      <div>
-        <h2>Booking Availability</h2>
-        <p>Choose when customers are allowed to book appointments.</p>
-      </div>
-    </div>
-
-    <form
-      onSubmit={handleSaveAvailability}
-      style={{
-        background: '#111',
-        border: '1px solid #2a2a2a',
-        borderRadius: '14px',
-        padding: '24px',
-        marginBottom: '30px',
-      }}
-    >
-      <h3 style={{ marginTop: 0 }}>Set Availability</h3>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '16px',
-        }}
-      >
-        <div className="form-group">
-          <label>Date</label>
-          <input
-            type="date"
-            required
-            value={availabilityForm.date}
-            onChange={e =>
-              setAvailabilityForm(prev => ({
-                ...prev,
-                date: e.target.value,
-              }))
-            }
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Start Time</label>
-          <input
-            type="time"
-            value={availabilityForm.start_time}
-            onChange={e =>
-              setAvailabilityForm(prev => ({
-                ...prev,
-                start_time: e.target.value,
-              }))
-            }
-          />
-        </div>
-
-        <div className="form-group">
-          <label>End Time</label>
-          <input
-            type="time"
-            value={availabilityForm.end_time}
-            onChange={e =>
-              setAvailabilityForm(prev => ({
-                ...prev,
-                end_time: e.target.value,
-              }))
-            }
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Appointment Length</label>
-
-          <select
-            value={availabilityForm.slot_minutes}
-            onChange={e =>
-              setAvailabilityForm(prev => ({
-                ...prev,
-                slot_minutes: Number(e.target.value),
-              }))
-            }
-          >
-            <option value={30}>30 minutes</option>
-            <option value={60}>1 hour</option>
-            <option value={90}>1.5 hours</option>
-            <option value={120}>2 hours</option>
-            <option value={180}>3 hours</option>
-            <option value={240}>4 hours</option>
-          </select>
-        </div>
-      </div>
-
-      <div
-        style={{
-          margin: '20px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={availabilityForm.is_available}
-          onChange={e =>
-            setAvailabilityForm(prev => ({
-              ...prev,
-              is_available: e.target.checked,
-            }))
-          }
-        />
-
-        <span>
-          {availabilityForm.is_available
-            ? 'Customers can book this day'
-            : 'Block this entire day'}
-        </span>
-      </div>
-
-      <button type="submit" className="btn-primary">
-        Save Availability
-      </button>
-    </form>
-
-    <div
-      style={{
-        background: '#111',
-        border: '1px solid #2a2a2a',
-        borderRadius: '14px',
-        padding: '24px',
-      }}
-    >
-      <h3>Upcoming Availability</h3>
-
-      {availability.length === 0 ? (
-        <p style={{ color: '#999' }}>
-          No availability has been added yet.
-        </p>
-      ) : (
-        <div style={{ display: 'grid', gap: '12px' }}>
-          {availability.map(item => (
-            <div
-              key={item.id}
-              style={{
-                border: '1px solid #292929',
-                borderRadius: '10px',
-                padding: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '15px',
-                flexWrap: 'wrap',
-              }}
+      {/* TAB NAVIGATION */}
+      <div className="tab-nav-wrap" ref={tabRef}>
+        <div className="tab-nav">
+          {TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              className={`tab-nav-btn ${activeTab === id ? 'tab-nav-active' : ''}`}
+              onClick={() => openTab(id)}
             >
-              <div>
-                <strong>
-                  {new Date(
-                    `${item.date}T12:00:00`
-                  ).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </strong>
-
-                <div
-                  style={{
-                    color: '#999',
-                    marginTop: '5px',
-                  }}
-                >
-                  {item.is_available
-                    ? `${item.start_time.slice(0, 5)} – ${item.end_time.slice(0, 5)} • ${item.slot_minutes} minute slots`
-                    : 'Closed / unavailable'}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                }}
-              >
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={() =>
-                    setAvailabilityForm({
-                      date: item.date,
-                      start_time: item.start_time.slice(0, 5),
-                      end_time: item.end_time.slice(0, 5),
-                      slot_minutes: item.slot_minutes,
-                      is_available: item.is_available,
-                    })
-                  }
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={() =>
-                    handleDeleteAvailability(item.id)
-                  }
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+              <Icon size={15} /> {label}
+            </button>
           ))}
         </div>
-      )}
-    </div>
-  </div>
-)}
-          
-          {(['recruiting', 'staff_schedule', 'timeclock', 'finance', 'sales', 'inventory', 'pay_settings'] as BusinessSection[]).includes(tab as BusinessSection) && (
-            <BusinessSuite
-              section={tab as BusinessSection}
-              employees={employees}
-              setEmployees={setEmployees}
-              completedRevenue={monthRevenue}
-            />
-          )}
+      </div>
 
-          {(['command_center','crm','dispatch','leads','territories','training','communications','automations'] as AdminTab[]).includes(tab) && (
-            <Phase300Suite section={tab as any} employees={employees} appointments={appointments} setAppointments={setAppointments} customers={customers} payments={payments} />
-          )}
+      {/* TEASER CARDS (shown when no tab is active) */}
+      {activeTab === null && (
+        <section className="teasers-section">
+          <FadeIn className="center-heading">
+            <p className="eyebrow">EXPLORE</p>
+            <h2>Everything your vehicle deserves.</h2>
+            <p>Tap any section to dive deeper. Book when you're ready.</p>
+          </FadeIn>
 
-          {(['job_assignments','tasks','equipment','documents','reports','permissions','notifications','time_off','payroll_approval','audit'] as AdminTab[]).includes(tab) && (
-            <EnterpriseSuite
-              section={tab as EnterpriseSection}
-              employees={employees}
-              setEmployees={setEmployees}
-              appointments={appointments}
-              setAppointments={setAppointments}
-            />
-          )}
-
-          {(['fleet','locations','marketing','approvals','incidents','purchasing','retention','continuity'] as AdminTab[]).includes(tab) && (
-            <OperationsExpansion section={tab as ExpansionSection} employees={employees} appointments={appointments} customers={customers} payments={payments} />
-          )}
-
-          {/* EMPLOYEES */}
-          {tab === 'employees' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div><h2>Team Management</h2><p>{employees.length} team members</p></div>
-                <button className="btn-primary" onClick={() => setShowEmpForm(true)}>
-                  <Plus size={16} /> Add Member
+          <div className="teaser-grid">
+            {/* Services teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[0].image} alt="Services" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Car size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">SERVICES</p>
+                <h3>Care without shortcuts</h3>
+                <p>From exterior refresh to full paint transformation. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
+                <button className="teaser-link" onClick={() => openTab('services')}>
+                  View services <ArrowRight size={13} />
                 </button>
               </div>
+            </FadeIn>
 
-              <div className="emp-sections">
-                {[
-                  { title: 'Detailers', roleKey: 'detailer' },
-                  { title: 'D2D Agents', roleKey: 'd2d_agent' },
-                  { title: 'Managers', roleKey: 'manager' },
-                ].map(({ title, roleKey }) => {
-                  const group = employees.filter(e => e.role === roleKey);
-                  return (
-                    <div key={roleKey} className="admin-card emp-group">
-                      <div className="admin-card-header">
-                        <h3>{title} <span className="emp-count">{group.length}</span></h3>
-                      </div>
-                      {group.length === 0 ? (
-                        <p className="empty-text">No {title.toLowerCase()} added yet.</p>
-                      ) : (
-                        <div className="emp-grid">
-                          {group.map(e => (
-                            <div key={e.id} className="emp-card">
-                              <div className="emp-avatar">{e.name[0].toUpperCase()}</div>
-                              <div className="emp-info">
-                                <strong>{e.name}</strong>
-                                <span>{e.email ?? e.phone ?? '—'}</span>
-                                <span className="emp-level">{e.role === 'd2d_agent' ? 'D2D Sales' : e.role.charAt(0).toUpperCase() + e.role.slice(1)} · Level {e.employment_level ?? 1}</span>
-                              </div>
-                              <div className="emp-stats">
-                                <div><strong>{e.jobs_completed}</strong><span>Jobs</span></div>
-                                <div><strong>{e.role === 'd2d_agent' ? `${e.commission_rate}%` : `$${Number(e.hourly_rate ?? 0).toFixed(0)}/hr`}</strong><span>{e.role === 'd2d_agent' ? 'Comm.' : 'Rate'}</span></div>
-                              </div>
-                              <StatusBadge status={e.status} />
-                              <button className="emp-delete" onClick={() => handleDeleteEmployee(e.id)}><Trash2 size={14} /></button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+            {/* Packages teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[2].image} alt="Packages" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Package size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">PACKAGES</p>
+                <h3>Choose your level of Luxe</h3>
+                <p>Three signature packages from {money(PACKAGES[0].price)} to {money(PACKAGES[2].price)}. Simple pricing, premium results.</p>
+                <button className="teaser-link" onClick={() => openTab('packages')}>
+                  Compare packages <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Protection teaser */}
+            <FadeIn className="teaser-card" delay={160}>
+              <div className="teaser-img">
+                <img src={SERVICES[4].image} alt="Protection" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Gem size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">PROTECTION</p>
+                <h3>Built to protect</h3>
+                <p>Ceramic coating in 1, 3, and 5-year tiers. Hydrophobic protection with deeper gloss.</p>
+                <button className="teaser-link" onClick={() => openTab('protection')}>
+                  Explore protection <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Gallery teaser */}
+            <FadeIn className="teaser-card" delay={0}>
+              <div className="teaser-img">
+                <img src={SERVICES[3].image} alt="Gallery" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Camera size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">GALLERY</p>
+                <h3>Made to be seen</h3>
+                <p>Premium vehicles. Precise finishes. The details that change the whole look.</p>
+                <button className="teaser-link" onClick={() => openTab('gallery')}>
+                  View gallery <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Membership teaser */}
+            <FadeIn className="teaser-card" delay={80}>
+              <div className="teaser-img">
+                <img src={SERVICES[1].image} alt="Membership" />
+                <div className="teaser-overlay" />
+                <div className="teaser-icon"><Crown size={22} /></div>
+              </div>
+              <div className="teaser-body">
+                <p className="eyebrow">MEMBERSHIP</p>
+                <h3>Don't wait until it needs rescuing</h3>
+                <p>Three maintenance plans from {money(MEMBERSHIPS[0].price)}/mo to {money(MEMBERSHIPS[2].price)}/mo. Consistency pays.</p>
+                <button className="teaser-link" onClick={() => openTab('membership')}>
+                  See plans <ArrowRight size={13} />
+                </button>
+              </div>
+            </FadeIn>
+
+            {/* Booking teaser */}
+            <FadeIn className="teaser-card teaser-cta" delay={160}>
+              <div className="teaser-body teaser-body-cta">
+                <p className="eyebrow">BOOK NOW</p>
+                <h3>Get an instant estimate</h3>
+                <p>Build your service, pick your add-ons, and request your appointment in minutes.</p>
+                <button className="btn-primary" onClick={() => openTab('booking')}>
+                  Book Your Detail <ArrowRight size={14} />
+                </button>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+      )}
+
+      {/* TAB CONTENT */}
+      {activeTab !== null && (
+        <section className="tab-content-section">
+          <div className="tab-content-header">
+            <button className="tab-back" onClick={closeTab}>
+              <ArrowLeft size={16} /> Back to overview
+            </button>
+            <h2>{TABS.find(t => t.id === activeTab)?.label}</h2>
+          </div>
+
+          {/* SERVICES TAB */}
+          {activeTab === 'services' && (
+            <div className="tab-panel">
+              <FadeIn className="section-header dark-header">
+                <div>
+                  <p className="eyebrow eyebrow-dim">SERVICES</p>
+                  <h2>Care without shortcuts.</h2>
+                </div>
+                <p>From a polished daily driver to a full paint transformation.</p>
+              </FadeIn>
+              <div className="filter-row">
+                {['All', 'Detail', 'Paint', 'Ceramic'].map(f => (
+                  <button key={f} className={`filter-btn ${serviceFilter === f ? 'filter-active' : ''}`} onClick={() => setServiceFilter(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="service-grid">
+                {filtered.map((s, i) => (
+                  <FadeIn key={s.title} delay={i * 80} className="service-card">
+                    <div className="service-img">
+                      <img src={s.image} alt={s.title} />
+                      <div className="service-img-overlay" />
+                      <span className="service-badge">{s.category}</span>
                     </div>
-                  );
-                })}
+                    <div className="service-body">
+                      <div className="service-top">
+                        <h3>{s.title}</h3>
+                        <strong className="service-price">{money(s.price)}<sup>+</sup></strong>
+                      </div>
+                      <p>{s.desc}</p>
+                      <ul>
+                        {s.items.map(item => <li key={item}><Check size={11} /> {item}</li>)}
+                      </ul>
+                      <button className="service-cta" onClick={() => openTab('booking')}>
+                        Book this service <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </FadeIn>
+                ))}
               </div>
             </div>
           )}
 
-          {/* PAYMENTS */}
-          {tab === 'payments' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div><h2>Payments & Cash Flow</h2></div>
+          {/* PACKAGES TAB */}
+          {activeTab === 'packages' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">SIGNATURE PACKAGES</p>
+                <h2>Choose your level of Luxe.</h2>
+                <p>Simple starting prices. Personalized service. A finish that speaks for itself.</p>
+              </FadeIn>
+              <div className="packages-grid">
+                {PACKAGES.map((p, i) => (
+                  <FadeIn key={p.name} delay={i * 100} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                    <span className="package-tag">{p.tag}</span>
+                    {p.featured && <div className="package-glow" />}
+                    <h3>{p.name}</h3>
+                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                    <p>{p.desc}</p>
+                    <ul>
+                      {p.features.map(f => <li key={f}><Check size={12} /> {f}</li>)}
+                    </ul>
+                    <button
+                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                      onClick={() => { setSelectedPackage(i); openTab('booking'); }}
+                    >
+                      Choose {p.name}
+                    </button>
+                  </FadeIn>
+                ))}
               </div>
+              <FadeIn className="pricing-note">
+                <strong>Vehicle-size pricing:</strong> Sedan/Coupe +$0 · Small SUV +$25 · Large SUV/Truck +$50 · Three-Row/Large Truck +$75. Final pricing may vary by condition.
+              </FadeIn>
+            </div>
+          )}
 
-              <div className="admin-stats-row">
-                <StatCard label="Total Revenue" value={money(totalRevenue)} icon={DollarSign} color="stat-gold" />
-                <StatCard label="This Month" value={money(monthRevenue)} icon={TrendingUp} color="stat-green" />
-                <StatCard label="Transactions" value={String(payments.length)} icon={CreditCard} />
-                <StatCard label="Avg. Ticket" value={payments.length > 0 ? money(Math.round(totalRevenue / payments.length)) : '$0'} icon={BarChart2} />
-              </div>
-
-              <div className="admin-card">
-                <div className="admin-card-header"><h3>Transaction History</h3></div>
-                <div className="data-table">
-                  <div className="data-table-head">
-                    <span>Description</span><span>Amount</span><span>Method</span><span>Status</span><span>Date</span>
+          {/* PROTECTION TAB */}
+          {activeTab === 'protection' && (
+            <div className="tab-panel">
+              <div className="protection-section">
+                <FadeIn className="protection-left" direction="left">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="protection-img-accent" />
+                </FadeIn>
+                <FadeIn className="protection-right" delay={150}>
+                  <p className="eyebrow">LUXE PROTECTION</p>
+                  <h2>More than shine.<br /><em>Built to protect.</em></h2>
+                  <p>Our ceramic coating service combines meticulous preparation with long-lasting hydrophobic protection. The result is deeper gloss, easier maintenance, and a finish built for the road.</p>
+                  <div className="protection-tiers">
+                    {[['1 YEAR', 650], ['3 YEAR', 950], ['5 YEAR', 1250]].map(([label, price]) => (
+                      <div key={String(label)} className="protection-tier">
+                        <span>{label}</span>
+                        <strong>{money(Number(price))}<sup>+</sup></strong>
+                      </div>
+                    ))}
                   </div>
-                  {payments.map(p => (
-                    <div key={p.id} className="data-table-row">
-                      <span className="dt-cell">{p.description ?? 'Service'}</span>
-                      <span className="dt-cell"><strong>{money(p.amount)}</strong></span>
-                      <span className="dt-cell">{p.payment_method}</span>
-                      <span className="dt-cell"><StatusBadge status={p.status} /></span>
-                      <span className="dt-cell">{new Date(p.created_at).toLocaleDateString()}</span>
+                  <button className="btn-dark" onClick={() => openTab('booking')}>Request Coating Quote</button>
+                </FadeIn>
+              </div>
+
+              <div className="addons-section" style={{ background: 'var(--black)', padding: '80px 7vw', marginTop: '0' }}>
+                <FadeIn className="section-header dark-header">
+                  <div>
+                    <p className="eyebrow eyebrow-dim">LUXE ADD-ONS</p>
+                    <h2>Make it yours.</h2>
+                  </div>
+                  <p>Build your service around what your vehicle actually needs.</p>
+                </FadeIn>
+                <div className="addons-grid">
+                  {ADD_ONS.map(([name, price], i) => (
+                    <button
+                      key={name}
+                      className={`addon-btn ${selectedAddOns.includes(i) ? 'addon-selected' : ''}`}
+                      onClick={() => toggleAddOn(i)}
+                    >
+                      <span>{name}</span>
+                      <strong>+{money(price)}</strong>
+                      {selectedAddOns.includes(i) && <div className="addon-check"><Check size={10} /></div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GALLERY TAB */}
+          {activeTab === 'gallery' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">THE LUXE COLLECTION</p>
+                <h2>Made to be seen.</h2>
+                <p>Premium vehicles. Precise finishes. Attention to the details that change the whole look.</p>
+              </FadeIn>
+              <div className="gallery-grid">
+                <div className="gallery-cell gallery-main">
+                  <img src={SERVICES[2].image} alt="Luxe signature detail" />
+                  <div className="gallery-caption">Signature Detail</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[1].image} alt="Interior detail" />
+                  <div className="gallery-caption">Interior Care</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[3].image} alt="Paint correction" />
+                  <div className="gallery-caption">Paint Correction</div>
+                </div>
+                <div className="gallery-cell gallery-wide">
+                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <div className="gallery-caption">Ceramic Coating</div>
+                </div>
+                <div className="gallery-cell">
+                  <img src={SERVICES[0].image} alt="Exterior detail" />
+                  <div className="gallery-caption">Exterior Detail</div>
+                </div>
+              </div>
+
+              <div className="luxury-banner" style={{ marginTop: '40px' }}>
+                <img src="https://images.pexels.com/photos/27968215/pexels-photo-27968215.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+                <div className="banner-overlay" />
+                <FadeIn className="banner-content">
+                  <p className="eyebrow eyebrow-glow">THE LUXE COLLECTION</p>
+                  <h2>Luxury vehicles<br />deserve luxury care.</h2>
+                  <p>Specialized service for premium, exotic, collector, and specialty vehicles.</p>
+                  <button className="btn-ghost" onClick={() => scrollTo('contact')}>Request a Custom Quote</button>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* MEMBERSHIP TAB */}
+          {activeTab === 'membership' && (
+            <div className="tab-panel">
+              <FadeIn className="center-heading">
+                <p className="eyebrow">LUXE MEMBERSHIP</p>
+                <h2>Don't wait until your car needs rescuing.</h2>
+                <p>Keep the finish you love with a maintenance plan built around consistency.</p>
+              </FadeIn>
+              <div className="membership-grid">
+                {MEMBERSHIPS.map((plan, i) => (
+                  <FadeIn key={plan.name} delay={i * 100} className="membership-card">
+                    <p className="eyebrow">{plan.name.toUpperCase()}</p>
+                    <div className="member-price">
+                      {money(plan.price)}<small>/month</small>
+                    </div>
+                    <p>{plan.desc}</p>
+                    <ul>
+                      {plan.features.map(f => <li key={f}><Check size={11} /> {f}</li>)}
+                    </ul>
+                    <div className="member-savings-badge">
+                      <Shield size={12} /> {plan.savings}
+                    </div>
+                    <Link to="/login" className="btn-outline btn-full">Join {plan.name}</Link>
+                  </FadeIn>
+                ))}
+              </div>
+
+              <div className="process-section" style={{ marginTop: '40px' }}>
+                <FadeIn className="center-heading">
+                  <p className="eyebrow">THE PROCESS</p>
+                  <h2>Simple from booking to pickup.</h2>
+                </FadeIn>
+                <div className="process-grid">
+                  {[
+                    ['01', 'Choose Your Service', 'Select the package or service your vehicle needs.'],
+                    ['02', 'Tell Us About Your Vehicle', 'Share the year, make, model, size, and condition.'],
+                    ['03', 'Schedule', 'Choose your preferred appointment date and time.'],
+                    ['04', 'Experience Auto Luxe', 'Drop off or request concierge service.'],
+                    ['05', 'Drive Away Different', 'Leave with a vehicle ready to be noticed.'],
+                  ].map(([num, title, desc], i) => (
+                    <FadeIn key={num} delay={i * 80} className="process-card">
+                      <span className="process-num">{num}</span>
+                      <h3>{title}</h3>
+                      <p>{desc}</p>
+                    </FadeIn>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BOOKING TAB */}
+          {activeTab === 'booking' && (
+            <div className="tab-panel">
+              <div className="booking-section">
+                <FadeIn className="booking-left">
+                  <p className="eyebrow">BUILD YOUR LUXE SERVICE</p>
+                  <h2>Get an instant starting estimate.</h2>
+                  <p>Select a package, vehicle size, condition, and optional add-ons.</p>
+                  <div className="estimate-box">
+                    <div className="estimate-label">Estimated Starting Total</div>
+                    <div className="estimate-price">{money(estimated)}</div>
+                    <div className="estimate-note">Before custom-service adjustments</div>
+                    <div className="estimate-savings">
+                      Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
+                    </div>
+                  </div>
+                  <div className="portal-cta-box">
+                    <p>Want to track your service history and savings?</p>
+                    <Link to="/login" className="btn-outline">Create Your Portal Account</Link>
+                  </div>
+                </FadeIn>
+
+                <FadeIn delay={150} className="booking-right">
+                  <form className="booking-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                      <label>Package</label>
+                      <div className="pkg-choices">
+                        {PACKAGES.map((p, i) => (
+                          <button
+                            type="button"
+                            key={p.name}
+                            className={`pkg-choice ${selectedPackage === i ? 'pkg-active' : ''}`}
+                            onClick={() => setSelectedPackage(i)}
+                          >
+                            <span>{p.name}</span>
+                            <strong>{money(p.price)}+</strong>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Vehicle Size</label>
+                        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))}>
+                          {VEHICLE_SIZES.map((v, i) => (
+                            <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Vehicle Condition</label>
+                        <select value={condition} onChange={e => setCondition(e.target.value)}>
+                          <option>Light</option>
+                          <option>Moderate</option>
+                          <option>Heavy</option>
+                          <option>Severe</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Optional Add-Ons</label>
+                      <div className="mini-addons">
+                        {ADD_ONS.map(([name, price], i) => (
+                          <button
+                            type="button"
+                            key={name}
+                            className={`mini-addon ${selectedAddOns.includes(i) ? 'mini-active' : ''}`}
+                            onClick={() => toggleAddOn(i)}
+                          >
+                            {name}<span>+${price}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Full Name</label>
+                        <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone Number</label>
+                        <input required type="tel" placeholder="330-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Email Address</label>
+                        <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Year / Make / Model</label>
+                        <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Additional Notes</label>
+                      <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                    </div>
+                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent}>
+                      {formSent ? '✓ Request Submitted' : 'Request My Appointment'}
+                    </button>
+                    {formSent && (
+                      <p className="form-success">Your request has been submitted. We'll be in touch shortly.</p>
+                    )}
+                  </form>
+                </FadeIn>
+              </div>
+            </div>
+          )}
+
+          {/* FAQ TAB */}
+          {activeTab === 'faq' && (
+            <div className="tab-panel">
+              <div className="faq-section" style={{ padding: '0 7vw', display: 'grid', gridTemplateColumns: '0.6fr 1.4fr', gap: '8vw' }}>
+                <FadeIn className="faq-heading">
+                  <p className="eyebrow">FAQ</p>
+                  <h2>Questions, answered.</h2>
+                </FadeIn>
+                <div className="faq-list">
+                  {FAQS.map(([q, a], i) => (
+                    <div key={q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                      <button onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                        <span>{q}</span>
+                        {openFaq === i ? <Minus size={16} /> : <Plus size={16} />}
+                      </button>
+                      <div className="faq-answer">
+                        <p>{a}</p>
+                      </div>
                     </div>
                   ))}
-                  {payments.length === 0 && <p className="empty-text">No payments recorded yet.</p>}
                 </div>
               </div>
             </div>
           )}
-
-          {/* VISITORS */}
-          {tab === 'visitors' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <div><h2>Site Visitors</h2><p>Last 30 days</p></div>
-              </div>
-              <div className="admin-stats-row">
-                <StatCard label="Total Visits (30d)" value={String(visits.reduce((s, v) => s + v.count, 0))} icon={Eye} />
-                <StatCard label="Pages Tracked" value={String(visits.length)} icon={Globe} />
-              </div>
-              <div className="admin-card">
-                <div className="admin-card-header"><h3>Top Pages</h3></div>
-                <div className="visitors-list">
-                  {visits.map(v => {
-                    const maxCount = visits[0]?.count ?? 1;
-                    return (
-                      <div key={v.page} className="visitor-row">
-                        <span className="visitor-page">{v.page}</span>
-                        <div className="visitor-bar-wrap">
-                          <div className="visitor-bar" style={{ width: `${(v.count / maxCount) * 100}%` }} />
-                        </div>
-                        <strong className="visitor-count">{v.count}</strong>
-                      </div>
-                    );
-                  })}
-                  {visits.length === 0 && <p className="empty-text">No visits tracked yet. Visits are logged as users browse the site.</p>}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Add Employee Modal */}
-      {showEmpForm && (
-        <div className="modal-overlay" onClick={() => setShowEmpForm(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Add Team Member</h3>
-              <button onClick={() => setShowEmpForm(false)}><X size={20} /></button>
-            </div>
-            <form className="modal-form" onSubmit={handleAddEmployee}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <input required value={empForm.name} onChange={e => setEmpForm(p => ({...p, name: e.target.value}))} placeholder="Full name" />
-                </div>
-                <div className="form-group">
-                  <label>Role</label>
-                  <select value={empForm.role} onChange={e => {
-                    const role = e.target.value;
-                    setEmpForm(p => ({
-                      ...p,
-                      role,
-                      employment_level: 1,
-                      pay_type: role === 'd2d_agent' ? 'base_commission' : 'hourly',
-                      hourly_rate: role === 'manager' ? 22 : role === 'detailer' ? 17 : 0,
-                      weekly_base: role === 'd2d_agent' ? 300 : 0,
-                      commission_rate: role === 'd2d_agent' ? 10 : 0,
-                    }));
-                  }}>
-                    <option value="detailer">Detailer</option>
-                    <option value="d2d_agent">D2D Sales</option>
-                    <option value="manager">Manager</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Email</label>
-                  <input type="email" value={empForm.email} onChange={e => setEmpForm(p => ({...p, email: e.target.value}))} placeholder="team@northsplash.com" />
-                </div>
-                <div className="form-group">
-                  <label>Phone</label>
-                  <input type="tel" value={empForm.phone} onChange={e => setEmpForm(p => ({...p, phone: e.target.value}))} placeholder="330-000-0000" />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Employee Level</label>
-                  <select value={empForm.employment_level} onChange={e => {
-                    const level = Number(e.target.value);
-                    const role = empForm.role;
-                    const hourly = role === 'detailer' ? ({1:17,2:18,3:19} as Record<number,number>)[level] : role === 'manager' ? ({1:22,2:24,3:26} as Record<number,number>)[level] : 0;
-                    const base = role === 'd2d_agent' ? ({1:300,2:350,3:400} as Record<number,number>)[level] : 0;
-                    const comm = role === 'd2d_agent' ? ({1:10,2:12.5,3:15} as Record<number,number>)[level] : 0;
-                    setEmpForm(p => ({...p, employment_level: level, hourly_rate: hourly, weekly_base: base, commission_rate: comm}));
-                  }}>
-                    <option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option>
-                  </select>
-                </div>
-                {empForm.role === 'd2d_agent' ? (
-                  <div className="form-group"><label>Weekly Base</label><input type="number" value={empForm.weekly_base} onChange={e=>setEmpForm(p=>({...p,weekly_base:Number(e.target.value)}))}/></div>
-                ) : (
-                  <div className="form-group"><label>Hourly Rate</label><input type="number" step="0.25" value={empForm.hourly_rate} onChange={e=>setEmpForm(p=>({...p,hourly_rate:Number(e.target.value)}))}/></div>
-                )}
-              </div>
-              {empForm.role === 'd2d_agent' && <div className="form-group">
-                <label>Commission Rate (%)</label>
-                <input type="number" min="0" max="100" step="0.5" value={empForm.commission_rate} onChange={e => setEmpForm(p => ({...p, commission_rate: Number(e.target.value)}))} />
-              </div>}
-              <button type="submit" className="btn-primary btn-full" disabled={empSubmitting}>
-                {empSubmitting ? 'Adding...' : 'Add Team Member'}
-              </button>
-            </form>
-          </div>
-        </div>
+        </section>
       )}
+
+      {/* CONTACT - always visible at bottom */}
+      <section id="contact" className="contact-section">
+        <FadeIn className="contact-left">
+          <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
+          <h2>Your vehicle.<br /><em>Our standard.</em></h2>
+          <p>Ready to elevate the finish? Let's build the right service for your vehicle.</p>
+        </FadeIn>
+        <FadeIn delay={150} className="contact-right">
+          <a href="tel:3309903956" className="contact-link">330-990-3956</a>
+          <a href="mailto:support@northsplash.com" className="contact-link">support@northsplash.com</a>
+          <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
+        </FadeIn>
+      </section>
+
+      <Footer onScrollTo={scrollTo} />
     </div>
   );
 }
