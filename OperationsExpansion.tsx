@@ -6,7 +6,7 @@ import type { Appointment, Employee, Profile } from '@/lib/supabase';
 
 export type ExpansionSection='command_center'|'crm'|'dispatch'|'fleet'|'locations'|'marketing'|'automations'|'approvals'|'incidents'|'training'|'purchasing'|'communications'|'retention'|'continuity';
 type Props={section:ExpansionSection;employees:Employee[];appointments:Appointment[];customers:Profile[];payments:any[]};
-const card:React.CSSProperties={background:'#9d7651',color:'#fff',border:'1px solid #b89572',borderRadius:18,padding:20,boxShadow:'0 12px 30px rgba(35,24,16,.12)'};
+const card:React.CSSProperties={background:'#fffdf9',color:'#211811',border:'1px solid #e3d6ca',borderRadius:18,padding:20,boxShadow:'0 12px 34px rgba(48,32,21,.055)'};
 const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))',gap:14};
 const Header=({title,sub}:{title:string;sub:string})=><div className="tab-header ops-header"><div><span className="eyebrow">NORTH SPLASH OS</span><h2>{title}</h2><p>{sub}</p></div></div>;
 const Metric=({label,value,detail}:{label:string;value:string;detail?:string})=><div className="ops-metric"><span>{label}</span><strong>{value}</strong>{detail&&<small>{detail}</small>}</div>;

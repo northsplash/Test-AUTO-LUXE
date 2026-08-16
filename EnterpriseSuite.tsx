@@ -47,7 +47,7 @@ const LEAD_STATUSES = [
 const roleLabel = (r?: string | null) => ({ owner: 'Owner / Admin', manager: 'Manager', employee: 'Employee', d2d: 'D2D Sales', recruiter: 'Recruiter', finance: 'Finance', customer: 'Customer' }[r || 'customer'] || r || 'Customer');
 const dt = (v?: string | null) => v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 const day = (v?: string | null) => v ? new Date(`${v}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-const card: React.CSSProperties = { background: '#9d7651', color: '#fff', border: '1px solid #876342', borderRadius: 14, padding: 20 };
+const card: React.CSSProperties = { background: '#fffdf9', color: '#211811', border: '1px solid #e3d6ca', borderRadius: 18, padding: 20, boxShadow: '0 12px 34px rgba(48,32,21,.055)' };
 const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 };
 const reverseAddress=async(lat:number,lng:number)=>{try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,{headers:{'Accept-Language':'en-US,en'}});if(!r.ok)return'';const d=await r.json();const a=d.address||{};const street=[a.house_number,a.road||a.residential||a.pedestrian].filter(Boolean).join(' ');const city=a.city||a.town||a.village||a.municipality;const region=[city,a.state,a.postcode].filter(Boolean).join(', ').replace(/, ([0-9]{5})$/, ' $1');return [street,region].filter(Boolean).join(', ')||d.display_name||''}catch{return''}};
 
@@ -56,7 +56,7 @@ async function audit(action: string, entityType: string, entityId?: string, deta
 }
 
 function Header({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {
-  return <div className="tab-header"><div><h2>{title}</h2><p>{subtitle}</p></div>{action}</div>;
+  return <div className="tab-header enterprise-page-header"><div><span className="eyebrow">NORTH SPLASH OS</span><h2>{title}</h2><p>{subtitle}</p></div>{action}</div>;
 }
 
 function LeadMap({ leads, territories, onMapPoint }: { leads: Lead[]; territories: LeadTerritory[]; onMapPoint: (lat: number, lng: number) => void }) {
