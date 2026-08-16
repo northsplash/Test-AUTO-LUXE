@@ -7,7 +7,6 @@ function serverKey(){const legacy=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
 Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});try{
  const url=Deno.env.get('SUPABASE_URL')||'',key=serverKey(),resend=Deno.env.get('RESEND_API_KEY');if(!url||!key)throw new Error('Supabase server credentials are missing.');
  const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const token=(req.headers.get('Authorization')||'').replace('Bearer ','');const {data:{user}}=await admin.auth.getUser(token);if(!user)throw new Error('Unauthorized');const {data:actor}=await admin.from('profiles').select('role,portal_role,permissions').eq('id',user.id).maybeSingle();if(!(actor?.role==='admin'||actor?.portal_role==='owner'||actor?.permissions?.['notifications.manage']))throw new Error('Automation access required.');
- try{await admin.rpc('ns_release_expired_lead_cooldowns')}catch(e){console.warn('[automation-worker] cooldown release skipped',e)}
  await queueDueEvents(admin);
  const limit=Math.max(1,Math.min(250,Number((await safeJson(req))?.limit||100)));
  const {data:events,error}=await admin.from('automation_events').select('*').eq('status','pending').lte('process_after',new Date().toISOString()).order('process_after').limit(limit);if(error)throw error;let processed=0,failed=0;

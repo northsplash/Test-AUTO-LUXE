@@ -4,7 +4,7 @@ import {
   Award, BarChart3, ChevronDown, Clock3, Crosshair, DollarSign, Gauge,
   History, ListChecks, LogOut, MapPin, Menu, Navigation, Pause, Phone,
   Play, Plus, RefreshCw, Route, Search, Target, TrendingUp, UserRound,
-  WifiOff, X,
+  WifiOff, X, Eye,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from '@/lib/auth';
@@ -143,6 +143,9 @@ export default function D2DPortal(){
 
   const pickDoor=async(door:any)=>{
     const lead=door.lead_id?leads.find(l=>l.id===door.lead_id):null;
+    const cooldown=(lead as any)?.cooldown_until?new Date((lead as any).cooldown_until):null;
+    if(lead?.status==='do_not_knock'||door?.do_not_knock){alert('Permanent Do Not Knock property. A manager must clear this restriction before canvassing.');return;}
+    if((lead as any)?.archived_at&&cooldown&&cooldown>new Date()){alert(`Lead is archived until ${cooldown.toLocaleDateString()}. It cannot be reused yet.`);return;}
     setSelectedDoor(door);setManual(false);setHistory([]);
     let address=lead?.address||door.address||'';
     setForm({customer_name:lead?.customer_name||'',address,phone:lead?.phone||'',email:lead?.email||'',status:lead?.status||door.status||'unworked',service_interest:lead?.service_interest||'',vehicle_info:lead?.vehicle_info||'',estimated_value:String(lead?.estimated_value||''),follow_up_at:lead?.follow_up_at?.slice(0,16)||'',notes:lead?.notes||door.notes||'',appointment_at:''});
@@ -161,7 +164,7 @@ export default function D2DPortal(){
   const checkDuplicate=async()=>{
     const phone=form.phone.replace(/\D/g,'').slice(-10);const address=form.address.trim().toLowerCase().replace(/\s+/g,' ');
     if(!phone&&!address)return null;
-    let query=supabase.from('leads').select('id,customer_name,address,phone,status,assigned_employee_id').limit(5);
+    let query=supabase.from('leads').select('id,customer_name,address,phone,status,assigned_employee_id,archived_at,cooldown_until,archive_reason').limit(5);
     if(phone)query=query.eq('normalized_phone',phone);else query=query.eq('normalized_address',address);
     const {data}=await query;return(data??[]).filter((x:any)=>x.id!==selectedDoor?.lead_id);
   };
@@ -177,7 +180,10 @@ export default function D2DPortal(){
   const saveLead=async(e?:React.FormEvent,forcedStatus?:string)=>{
     e?.preventDefault();if(!employee||!selectedDoor)return;setSaving(true);
     const nextStatus=forcedStatus||form.status||'unworked';
-    const duplicates=await checkDuplicate();if(duplicates?.length&&!window.confirm(`Possible duplicate lead found: ${duplicates[0].customer_name||duplicates[0].address||duplicates[0].phone}. Save anyway?`)){setSaving(false);return;}
+    const duplicates=await checkDuplicate();
+    const protectedDuplicate=duplicates?.find((x:any)=>x.status==='do_not_knock'||(x.cooldown_until&&new Date(x.cooldown_until)>new Date()));
+    if(protectedDuplicate){setSaving(false);return alert(protectedDuplicate.status==='do_not_knock'?'This address/contact is permanently Do Not Knock.':'This lead is in the 6-month archive cooldown and cannot be reused yet.');}
+    if(duplicates?.length&&!window.confirm(`Possible duplicate lead found: ${duplicates[0].customer_name||duplicates[0].address||duplicates[0].phone}. Save anyway?`)){setSaving(false);return;}
     const territory_id=selectedDoor.territory_id||(!manual?selectedTerritory:null)||null;
     const payload:any={
       ...(selectedDoor.lead_id?{id:selectedDoor.lead_id}:{}),assigned_employee_id:employee.id,territory_id,territory_door_id:selectedDoor.id||null,
@@ -187,6 +193,8 @@ export default function D2DPortal(){
       latitude:selectedDoor.latitude??null,longitude:selectedDoor.longitude??null,last_contacted_at:new Date().toISOString(),
       next_action:nextStatus==='follow_up'?'follow_up':nextStatus==='estimate'?'send_estimate':nextStatus==='appointment_set'?'appointment':null,
       next_action_at:form.follow_up_at?new Date(form.follow_up_at).toISOString():null,
+      ...(['not_interested','cancelled','lost'].includes(nextStatus)?(()=>{const d=new Date();d.setMonth(d.getMonth()+6);return{archived_at:new Date().toISOString(),archive_reason:nextStatus,cooldown_until:d.toISOString(),reactivation_status:'cooldown'}})():{}),
+      ...(nextStatus==='do_not_knock'?{archived_at:new Date().toISOString(),archive_reason:'do_not_knock',cooldown_until:null,reactivation_status:'permanent_dnk'}:{}),
     };
     try{
       if(!navigator.onLine)throw new Error('offline');
@@ -327,7 +335,7 @@ function HouseDrawer({door,form,setForm,history,manual,saving,onClose,onSave,onE
     <div className="house-tabs"><button type="button" className={panel==='details'?'active':''} onClick={()=>setPanel('details')}>Lead Details</button><button type="button" className={panel==='history'?'active':''} onClick={()=>setPanel('history')}><History size={14}/> History ({history.length})</button></div>
     {panel==='details'?<>
       {manual&&<div className="house-manual-tools"><button type="button" className="btn-outline" onClick={onLocation}><Crosshair size={15}/> Use Current Location</button><input required placeholder="Street address" value={form.address} onChange={e=>setForm((p:any)=>({...p,address:e.target.value}))}/></div>}
-      {!manual&&<div className="house-contact-actions">{form.phone&&<><a href={`tel:${form.phone}`}><Phone size={15}/>Call</a><a href={`sms:${form.phone}`}><Phone size={15}/>Text</a></>}{door?.latitude&&door?.longitude&&<a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${door.latitude},${door.longitude}`}><Navigation size={15}/>Navigate</a>}</div>}{protectedDNK&&<div className="dnk-warning">This property is on the permanent Do Not Knock list. The status is protected across territory reassignment.</div>}
+      {!manual&&<div className="house-contact-actions">{form.phone&&<><a href={`tel:${form.phone}`}><Phone size={15}/>Call</a><a href={`sms:${form.phone}`}><Phone size={15}/>Text</a></>}{door?.latitude&&door?.longitude&&<><a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${door.latitude},${door.longitude}`}><Navigation size={15}/>Navigate</a><a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${door.latitude},${door.longitude}`}><Eye size={15}/>Street View</a></>}</div>}{protectedDNK&&<div className="dnk-warning">This property is on the permanent Do Not Knock list. The status is protected across territory reassignment.</div>}
       <div className="house-quick-grid">{STATUS_QUICK.map(status=><button type="button" disabled={protectedDNK&&status!=='do_not_knock'} key={status} className={form.status===status?'active':''} style={{'--status-color':doorStatus(status).color} as any} onClick={()=>setForm((p:any)=>({...p,status}))}>{doorStatus(status).short}</button>)}</div>
       <div className="house-form-grid"><label><span>Name</span><input value={form.customer_name} onChange={e=>setForm((p:any)=>({...p,customer_name:e.target.value}))}/></label><label><span>Phone</span><input type="tel" value={form.phone} onChange={e=>setForm((p:any)=>({...p,phone:e.target.value}))}/></label><label><span>Email</span><input type="email" value={form.email} onChange={e=>setForm((p:any)=>({...p,email:e.target.value}))}/></label><label><span>Vehicle</span><input value={form.vehicle_info} onChange={e=>setForm((p:any)=>({...p,vehicle_info:e.target.value}))}/></label><label><span>Service Interest</span><input value={form.service_interest} onChange={e=>setForm((p:any)=>({...p,service_interest:e.target.value}))}/></label><label><span>Estimated Value</span><input type="number" min="0" value={form.estimated_value} onChange={e=>setForm((p:any)=>({...p,estimated_value:e.target.value}))}/></label><label><span>Follow-Up</span><input type="datetime-local" value={form.follow_up_at} onChange={e=>setForm((p:any)=>({...p,follow_up_at:e.target.value}))}/></label><label><span>Appointment Time</span><input type="datetime-local" value={form.appointment_at} onChange={e=>setForm((p:any)=>({...p,appointment_at:e.target.value}))}/></label></div>
       <label className="house-notes"><span>Notes</span><textarea value={form.notes} onChange={e=>setForm((p:any)=>({...p,notes:e.target.value}))}/></label>
