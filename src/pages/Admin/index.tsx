@@ -6,7 +6,7 @@ import {
   Eye, DollarSign, Activity, ChevronUp, Globe, Archive,
   BriefcaseBusiness, CalendarClock, Clock3, PackageSearch, Settings2,
   Target, MapPinned, ListChecks, Wrench, FileText, ShieldCheck, Bell,
-  ClipboardCheck, ScrollText, UserCog, Gauge
+  ClipboardCheck, ScrollText, UserCog, Gauge, MessageCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from '@/lib/auth';
@@ -18,6 +18,7 @@ import BusinessSuite, { BusinessSection } from './BusinessSuite';
 import EnterpriseSuite, { EnterpriseSection } from './EnterpriseSuite';
 import OperationsExpansion, { ExpansionSection } from './OperationsExpansion';
 import Phase300Suite from './Phase300Suite';
+import TeamMessaging from '@/components/TeamMessaging';
 
 type AdminTab =
   | 'dashboard'
@@ -48,7 +49,7 @@ type AdminTab =
   | 'audit'
   | 'payments'
   | 'visitors'
-  | 'command_center' | 'crm' | 'dispatch' | 'crews' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'retention' | 'continuity';
+  | 'command_center' | 'crm' | 'dispatch' | 'crews' | 'fleet' | 'locations' | 'marketing' | 'automations' | 'approvals' | 'incidents' | 'training' | 'purchasing' | 'communications' | 'messages' | 'retention' | 'continuity';
 
 function StatCard({ label, value, icon: Icon, trend, color = '' }: { label: string; value: string; icon: any; trend?: string; color?: string }) {
   return (
@@ -339,6 +340,7 @@ const handleDeleteAvailability = async (id: string) => {
     { id: 'training' as AdminTab, label: 'Training', Icon: FileText },
     { id: 'purchasing' as AdminTab, label: 'Purchasing', Icon: PackageSearch },
     { id: 'communications' as AdminTab, label: 'Communications', Icon: Bell },
+    { id: 'messages' as AdminTab, label: 'Team Messages', Icon: MessageCircle },
     { id: 'retention' as AdminTab, label: 'Retention', Icon: Target },
     { id: 'continuity' as AdminTab, label: 'Backups & Exports', Icon: Archive },
     { id: 'payments' as AdminTab, label: 'Payments', Icon: CreditCard },
@@ -348,7 +350,7 @@ const handleDeleteAvailability = async (id: string) => {
   const navGroups = [
     {id:'core',label:'Overview',items:['dashboard','command_center']},
     {id:'customers',label:'Customers & Booking',items:['customers','crm','appointments','schedule','availability','archived','job_assignments','dispatch','fleet']},
-    {id:'people',label:'People & Workforce',items:['recruiting','employees','crews','staff_schedule','timeclock','time_off','payroll_approval','training']},
+    {id:'people',label:'People & Workforce',items:['recruiting','employees','crews','messages','staff_schedule','timeclock','time_off','payroll_approval','training']},
     {id:'field',label:'Field Sales & Territories',items:['sales','leads','territories']},
     {id:'money',label:'Finance & Growth',items:['finance','reports','pay_settings','payments','marketing','retention']},
     {id:'operations',label:'Operations',items:['inventory','equipment','tasks','documents','notifications','purchasing','incidents','approvals']},
@@ -1023,6 +1025,14 @@ const handleDeleteAvailability = async (id: string) => {
 
           {(['fleet','locations','marketing','approvals','incidents','purchasing','retention','continuity'] as AdminTab[]).includes(tab) && (
             <OperationsExpansion section={tab as ExpansionSection} employees={employees} appointments={appointments} customers={customers} payments={payments} />
+          )}
+
+
+          {tab === 'messages' && (
+            <div className="tab-content v2-page">
+              <div className="v2-page-head"><div><span className="eyebrow">INTERNAL COMMUNICATION</span><h2>Team Messages</h2><p>Company, role, crew and private group messaging in one workspace.</p></div></div>
+              <TeamMessaging employees={employees} portalKind="admin" />
+            </div>
           )}
 
           {/* EMPLOYEES */}

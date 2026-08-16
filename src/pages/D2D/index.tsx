@@ -4,7 +4,7 @@ import {
   Award, BarChart3, ChevronDown, Clock3, Crosshair, DollarSign, Gauge,
   History, ListChecks, LogOut, MapPin, Menu, Navigation, Pause, Phone,
   Play, Plus, RefreshCw, Route, Search, Target, TrendingUp, UserRound,
-  WifiOff, X, Eye,
+  WifiOff, X, Eye, MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from '@/lib/auth';
@@ -16,6 +16,7 @@ import type {
 import { money } from '@/lib/data';
 import FieldTerritoryMap from '@/components/FieldTerritoryMap';
 import TrainingPortal from '@/components/TrainingPortal';
+import TeamMessaging from '@/components/TeamMessaging';
 import {
   APPOINTMENT_STATUSES, CONTACTED_STATUSES, DOOR_STATUSES, REVISIT_STATUSES,
   SOLD_STATUSES, doorStatus, haversineMeters, localDateTime, optimizeWalkingRoute,
@@ -23,7 +24,7 @@ import {
 } from '@/lib/fieldOps';
 import { sendCommunication } from '@/lib/communications';
 
-type Tab='territory'|'route'|'leads'|'followups'|'performance'|'timeclock'|'training';
+type Tab='territory'|'route'|'leads'|'followups'|'messages'|'performance'|'timeclock'|'training';
 type LiveLocation={latitude:number;longitude:number;accuracy?:number|null};
 type OfflineAction={id:string;type:'save_lead'|'door_status';payload:any;created_at:string};
 const OFFLINE_KEY='ns_d2d_offline_queue_v2';
@@ -264,7 +265,7 @@ export default function D2DPortal(){
   if(!employee)return <div className="portal-loading"><p>Your account is not linked to a D2D employee profile yet.</p><Link to="/">Home</Link></div>;
 
   const nav:[Tab,string,any,string][]=[
-    ['territory','Territory',MapPin,'field'],['route','Route',Route,'field'],['leads','My Leads',Target,'field'],['followups','Follow-Ups',Navigation,'field'],
+    ['territory','Territory',MapPin,'field'],['route','Route',Route,'field'],['leads','My Leads',Target,'field'],['followups','Follow-Ups',Navigation,'field'],['messages','Messages',MessageCircle,'field'],
     ['performance','Performance',BarChart3,'performance'],['timeclock','Time Clock',Clock3,'account'],['training','Training',Award,'account'],
   ];
   const filteredLeads=leads.filter(l=>{
@@ -314,6 +315,8 @@ export default function D2DPortal(){
         </div>}
 
         {tab==='followups'&&<div className="tab-content"><div className="tab-header"><div><h2>Follow-Up Queue</h2><p>Highest-priority callbacks and revisits first.</p></div></div><div className="followup-grid">{dueFollowups.sort((a,b)=>new Date(a.follow_up_at||0).getTime()-new Date(b.follow_up_at||0).getTime()).map(l=><div className="followup-card" key={l.id}><div><span className="eyebrow">{l.follow_up_at&&new Date(l.follow_up_at)<new Date()?'OVERDUE':'FOLLOW UP'}</span><h3>{l.customer_name||l.address}</h3><p>{l.address}</p></div><div className="followup-meta"><span>{l.follow_up_at?localDateTime(l.follow_up_at):'No date set'}</span><strong>{money(Number(l.estimated_value||0))}</strong></div><div className="followup-actions">{l.phone&&<a className="btn-outline" href={`tel:${l.phone}`}><Phone size={14}/> Call</a>}<button className="btn-primary" onClick={()=>pickDoor({id:l.territory_door_id||undefined,lead_id:l.id,latitude:Number(l.latitude||0),longitude:Number(l.longitude||0),address:l.address,territory_id:l.territory_id,status:l.status})}>Open Lead</button></div></div>)}{!dueFollowups.length&&<div className="ns-empty">You're caught up. No follow-ups are due.</div>}</div></div>}
+
+        {tab==='messages'&&<div className="tab-content v2-page"><div className="v2-page-head"><div><span className="eyebrow">FIELD COMMUNICATION</span><h2>Messages</h2><p>Post sales wins, appointment updates, hot leads and crew messages from the field.</p></div></div><TeamMessaging employee={employee} portalKind="d2d"/></div>}
 
         {tab==='performance'&&<div className="tab-content v2-page"><div className="v2-page-head"><div><span className="eyebrow">MY PERFORMANCE</span><h2>Performance</h2><p>Today's activity, conversion quality, revenue and estimated compensation in one view.</p></div></div><div className="d2d-kpi-strip v2-kpis"><Kpi label="Completed Revenue" value={money(totalRevenue)} detail="Collected / completed sales"/><Kpi label="Commission" value={money(commission)} detail={`${employee.commission_rate||0}% rate`}/><Kpi label="Weekly Base" value={money(weekBase)}/><Kpi label="Contact Rate" value={`${percent(contactsToday,workedToday.length)}%`} detail={`${contactsToday}/${workedToday.length} doors`}/><Kpi label="Appointment Rate" value={`${percent(appointmentsToday,Math.max(contactsToday,1))}%`} detail={`${appointmentsToday} appointments`}/></div><div className="performance-v2-grid"><section className="v2-card goals-card"><div className="v2-card-head"><div><span className="eyebrow">TODAY</span><h3>Goal Progress</h3></div><Gauge size={24}/></div><Goal label="Doors" value={workedToday.length} goal={goals?.door_goal??50}/><Goal label="Contacts" value={contactsToday} goal={goals?.contact_goal??15}/><Goal label="Appointments" value={appointmentsToday} goal={goals?.appointment_goal??4}/><Goal label="Revenue" value={revenueToday} goal={Number(goals?.revenue_goal??1500)} moneyMode/></section><section className="v2-card funnel-card"><div className="v2-card-head"><div><span className="eyebrow">CONVERSION</span><h3>Today's Funnel</h3></div><TrendingUp size={24}/></div><div className="conversion-funnel"><div style={{'--w':'100%'} as any}><span>Doors</span><strong>{workedToday.length}</strong></div><div style={{'--w':`${Math.max(28,percent(contactsToday,Math.max(workedToday.length,1)))}%`} as any}><span>Contacts</span><strong>{contactsToday}</strong></div><div style={{'--w':`${Math.max(20,percent(appointmentsToday,Math.max(workedToday.length,1)))}%`} as any}><span>Appointments</span><strong>{appointmentsToday}</strong></div><div style={{'--w':`${Math.max(14,percent(salesToday.length,Math.max(workedToday.length,1)))}%`} as any}><span>Sales</span><strong>{salesToday.length}</strong></div></div></section><section className="v2-card recent-sales-card"><div className="v2-card-head"><div><span className="eyebrow">CLOSED</span><h3>Recent Sales</h3></div><DollarSign size={24}/></div>{sales.slice(0,8).map(s=><div className="performance-line" key={s.id}><span>{s.customer_name||s.service_name}</span><strong>{money(Number(s.sale_amount||0))}</strong></div>)}{!sales.length&&<div className="ns-empty compact">No completed sales yet.</div>}</section><section className="v2-card pay-card"><span className="eyebrow">ESTIMATED WEEKLY PAY</span><strong className="big-money">{money(weekBase+commission)}</strong><p>{money(weekBase)} base + {money(commission)} commission</p><small>Final payroll is subject to owner/manager approval and collected-sale rules.</small></section></div></div>}
 

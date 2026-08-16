@@ -58,7 +58,7 @@ function CrewCommandCenter({employees,appointments}:{employees:Employee[];appoin
     supabase.from('crew_groups').select('*').order('name'),supabase.from('crew_membership_history').select('*').order('started_at',{ascending:false}).limit(1000),supabase.from('territory_door_history').select('*').order('created_at',{ascending:false}).limit(15000),supabase.from('sales_records').select('*').order('sold_at',{ascending:false}).limit(3000),supabase.from('rep_locations').select('*').order('captured_at',{ascending:false}).limit(3000),supabase.from('time_entries').select('*').order('clock_in',{ascending:false}).limit(3000),supabase.from('crew_alerts').select('*').eq('status','open').order('created_at',{ascending:false}).limit(300),supabase.from('crew_daily_closeouts').select('*').order('work_date',{ascending:false}).limit(300)
   ]);setCrews(c.data??[]);setHistory(h.data??[]);setDoorHistory(d.data??[]);setSales(s.data??[]);setLocations(l.data??[]);setTimeEntries(t.data??[]);setAlerts(a.data??[]);setCloseouts(cl.data??[])};
   useEffect(()=>{load()},[]);
-  const activeMembers=(crew:any)=>employees.filter(e=>e.status==='active'&&e.department===`crew:${crew.id}`);
+  const activeMembers=(crew:any)=>employees.filter(e=>e.status==='active'&&(e.department||'')===`crew:${crew.id}`);
   const since=()=>{const d=new Date();if(range==='today')d.setHours(0,0,0,0);if(range==='week')d.setDate(d.getDate()-7);if(range==='month')d.setDate(d.getDate()-30);return d.getTime()};
   const createCrew=async(e:React.FormEvent)=>{e.preventDefault();const {error}=await supabase.from('crew_groups').insert({...newCrew,manager_employee_id:newCrew.manager_employee_id||null});if(error)return alert(error.message);setNewCrew({name:'',crew_type:'d2d',manager_employee_id:''});load()};
   const assign=async(employeeId:string,crew:any)=>{const emp=employees.find(e=>e.id===employeeId);if(!emp)return;const oldCrew=(emp.department||'').startsWith('crew:')?emp.department.slice(5):null;const {error}=await supabase.from('employees').update({department:`crew:${crew.id}`,manager_employee_id:crew.manager_employee_id||null}).eq('id',employeeId);if(error)return alert(error.message);await supabase.from('crew_membership_history').insert({crew_id:crew.id,employee_id:employeeId,manager_employee_id:crew.manager_employee_id||null,previous_crew_id:oldCrew,change_type:oldCrew?'transfer':'assigned'});await load()};
@@ -94,6 +94,8 @@ function TerritoryCenter({employees}:{employees:Employee[]}){
   const [selected,setSelected]=useState<string>('');
   const [busy,setBusy]=useState(false);
   const [query,setQuery]=useState('');
+  const [preview,setPreview]=useState<{houses:number;streets:number;streetNames:string[]}|null>(null);
+  const [previewBusy,setPreviewBusy]=useState(false);
 
   const load=async()=>{
     const [t,d]=await Promise.all([
