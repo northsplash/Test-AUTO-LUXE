@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Phone, Mail, Instagram, Facebook } from 'lucide-react';
 
+const OS_URL = (import.meta.env.VITE_OS_URL || 'https://app.northsplash.com').replace(/\/$/, '');
+
 type Props = {
   onScrollTo?: (id: string) => void;
 };
