@@ -1621,3 +1621,5 @@ h4 { font-size: 16px; }
 @media(max-width:900px){.crew-command-grid{grid-template-columns:1fr}.crew-member-grid{grid-template-columns:1fr}.crew-member-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.crew-member-metrics,.crew-detail-grid{grid-template-columns:1fr}.crew-card{padding:14px}.crew-card>strong{font-size:23px}}
 /* lead intelligence additions are maintained in portal-v2.css */
+
+.booking-error{margin:10px 0;padding:10px 12px;border:1px solid #d9a29a;background:#fff5f3;color:#8d2e24;border-radius:8px;font-size:13px;}

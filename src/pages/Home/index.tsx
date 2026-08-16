@@ -49,6 +49,8 @@ export default function Home() {
   const [condition, setCondition] = useState('Light');
   const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
   const [formSent, setFormSent] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [bookingSending, setBookingSending] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', notes: '' });
   const [heroVisible, setHeroVisible] = useState(false);
   const [counterVal, setCounterVal] = useState(0);
@@ -102,16 +104,31 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('appointments').insert({
-      service_name: PACKAGES[selectedPackage].name,
-      package_name: PACKAGES[selectedPackage].name,
-      add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
-      vehicle_info: formData.vehicle,
-      price: estimated,
-      notes: formData.notes,
-      status: 'pending',
-    }).catch(() => {});
-    setFormSent(true);
+    setBookingError('');
+    setBookingSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-booking', {
+        body: {
+          customer_name: formData.name.trim(),
+          customer_email: formData.email.trim(),
+          customer_phone: formData.phone.trim(),
+          service_name: PACKAGES[selectedPackage].name,
+          package_name: PACKAGES[selectedPackage].name,
+          add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
+          vehicle_info: formData.vehicle.trim(),
+          price: estimated,
+          notes: formData.notes.trim(),
+          source_channel: 'northsplash.com',
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Unable to submit booking.');
+      setFormSent(true);
+    } catch (err: any) {
+      setBookingError(err?.message || 'Unable to submit your booking right now. Please try again.');
+    } finally {
+      setBookingSending(false);
+    }
   };
 
   const openTab = (tab: TabId) => {
@@ -659,8 +676,9 @@ export default function Home() {
                       <label>Additional Notes</label>
                       <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
                     </div>
-                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent}>
-                      {formSent ? '✓ Request Submitted' : 'Request My Appointment'}
+                    {bookingError && <div className="booking-error" role="alert">{bookingError}</div>}
+                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent || bookingSending}>
+                      {formSent ? '✓ Request Submitted' : bookingSending ? 'Sending…' : 'Request My Appointment'}
                     </button>
                     {formSent && (
                       <p className="form-success">Your request has been submitted. We'll be in touch shortly.</p>

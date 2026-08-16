@@ -42,7 +42,7 @@ export function Footer({ onScrollTo }: Props) {
           <h4>Company</h4>
           <button onClick={() => scroll('packages')}>Packages</button>
           <button onClick={() => scroll('membership')}>Membership</button>
-          <Link to="/portal">Customer Portal</Link>
+          <a href={`${OS_URL}/login`}>Customer Portal</a>
           <Link to="/login">Sign In</Link>
         </div>
 

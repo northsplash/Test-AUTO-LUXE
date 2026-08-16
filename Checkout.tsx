@@ -9,6 +9,8 @@ declare global {
   }
 }
 
+const OS_URL=(import.meta.env.VITE_OS_URL||'https://app.northsplash.com').replace(/\/$/,'');
+
 export default function Checkout() {
   const cardRef = useRef<any>(null);
   const location = useLocation();
@@ -314,9 +316,9 @@ export default function Checkout() {
             Return to your portal and start your booking again.
           </p>
 
-          <Link to="/portal" style={{ color: '#c9a96e' }}>
+          <a href={`${OS_URL}/portal`} style={{ color: '#c9a96e' }}>
             Return to portal
-          </Link>
+          </a>
         </div>
       </div>
     );
@@ -340,15 +342,14 @@ export default function Checkout() {
           margin: '0 auto',
         }}
       >
-        <Link
-          to="/portal"
+        <a href={`${OS_URL}/portal`}
           style={{
             color: '#c9a96e',
             textDecoration: 'none',
           }}
         >
           ← Back to portal
-        </Link>
+        </a>
 
         <div
           style={{
