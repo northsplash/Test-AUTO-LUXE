@@ -7,7 +7,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/data';
 import FieldTerritoryMap from '@/components/FieldTerritoryMap';
-import { DOOR_STATUSES, percent } from '@/lib/fieldOps';
+import { DOOR_STATUSES, doorStatus, percent } from '@/lib/fieldOps';
 import type { Appointment, Employee, Lead, LeadTerritory, Profile, TerritoryDoor } from '@/lib/supabase';
 
 type Section = 'command_center'|'crm'|'dispatch'|'crews'|'leads'|'territories'|'training'|'communications'|'automations';
