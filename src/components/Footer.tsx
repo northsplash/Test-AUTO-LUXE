@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Phone, Mail, Instagram, Facebook } from 'lucide-react';
 
 const OS_URL = (import.meta.env.VITE_OS_URL || 'https://app.northsplash.com').replace(/\/$/, '');
@@ -45,7 +44,8 @@ export function Footer({ onScrollTo }: Props) {
           <button onClick={() => scroll('packages')}>Packages</button>
           <button onClick={() => scroll('membership')}>Membership</button>
           <a href={`${OS_URL}/login`}>Customer Portal</a>
-          <Link to="/login">Sign In</Link>
+          <a href={`${OS_URL}/login`}>Sign In</a>
+          <a href={`${OS_URL}/login?mode=signup`}>Create Account</a>
         </div>
 
         <div className="footer-col">

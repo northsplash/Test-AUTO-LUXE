@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
   Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
@@ -10,6 +9,8 @@ import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
+
+const OS_URL = (import.meta.env.VITE_OS_URL || 'https://app.northsplash.com').replace(/\/$/, '');
 
 type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
@@ -549,7 +550,7 @@ export default function Home() {
                     <div className="member-savings-badge">
                       <Shield size={12} /> {plan.savings}
                     </div>
-                    <Link to="/login" className="btn-outline btn-full">Join {plan.name}</Link>
+                    <a href={`${OS_URL}/login?mode=signup`} className="btn-outline btn-full">Join {plan.name}</a>
                   </FadeIn>
                 ))}
               </div>
@@ -596,7 +597,7 @@ export default function Home() {
                   </div>
                   <div className="portal-cta-box">
                     <p>Want to track your service history and savings?</p>
-                    <Link to="/login" className="btn-outline">Create Your Portal Account</Link>
+                    <a href={`${OS_URL}/login?mode=signup`} className="btn-outline">Create Your Portal Account</a>
                   </div>
                 </FadeIn>
 
