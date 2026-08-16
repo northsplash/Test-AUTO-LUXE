@@ -19,7 +19,7 @@ import { sendCommunication } from '@/lib/communications';
 import TeamMessaging from '@/components/TeamMessaging';
 
 type Tab='overview'|'dispatch'|'jobs'|'qc'|'team'|'crew'|'messages'|'schedule'|'timecards'|'recruiting'|'leads'|'training'|'tasks'|'inventory'|'finance';
-const card:React.CSSProperties={background:'#9d7651',color:'#fff',border:'1px solid #b89572',borderRadius:18,padding:20};
+const card:React.CSSProperties={background:'#fffdf9',color:'#211811',border:'1px solid #e3d6ca',borderRadius:18,padding:20,boxShadow:'0 12px 34px rgba(48,32,21,.055)'};
 
 export default function ManagerPortal(){
  const {user,profile,loading}=useAuth();const navigate=useNavigate();const [tab,setTab]=useState<Tab>('overview');const [sidebar,setSidebar]=useState(false);const [groups,setGroups]=useState<Record<string,boolean>>({today:true,people:false,sales:false,operations:false});

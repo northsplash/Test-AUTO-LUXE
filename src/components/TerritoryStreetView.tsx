@@ -81,7 +81,7 @@ async function nearestMapillaryImage(house: StreetViewHouse) {
   const latPad=0.0011;
   const lngPad=0.0011/Math.max(0.25,Math.cos(lat*Math.PI/180));
   const bbox=[lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].join(',');
-  const url=`https://graph.mapillary.com/images?access_token=${encodeURIComponent(MAPILLARY_TOKEN)}&fields=id,geometry,captured_at,compass_angle&bbox=${bbox}&limit=100`;
+  const url=`https://graph.mapillary.com/images?access_token=${encodeURIComponent(MAPILLARY_TOKEN)}&fields=id,geometry,captured_at,compass_angle,thumb_2048_url,sequence&bbox=${bbox}&limit=100`;
   const response=await fetch(url);
   if(!response.ok) throw new Error(response.status===401||response.status===403?'MAPILLARY_TOKEN_INVALID':'Mapillary imagery lookup failed.');
   const json=await response.json();
@@ -105,6 +105,8 @@ export default function TerritoryStreetView({ houses, activeHouse, onActiveHouse
   const [available, setAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState('');
   const [imageId,setImageId]=useState<string|null>(null);
+  const [fallbackImage,setFallbackImage]=useState<string>('');
+  const [captureDate,setCaptureDate]=useState<string>('');
   const [internalActive, setInternalActive] = useState<StreetViewHouse | null>(activeHouse || houses[0] || null);
 
   useEffect(() => {
@@ -134,19 +136,24 @@ export default function TerritoryStreetView({ houses, activeHouse, onActiveHouse
 
   const positionPanorama = async (house: StreetViewHouse) => {
     if (!viewerRef.current) return;
-    setLoading(true); setError(''); setAvailable(null); setImageId(null);
+    setLoading(true); setError(''); setAvailable(null); setImageId(null); setFallbackImage(''); setCaptureDate('');
     try {
       if(!MAPILLARY_TOKEN) throw new Error('MAPILLARY_TOKEN_MISSING');
       const [mly,image]=await Promise.all([loadMapillary(),nearestMapillaryImage(house)]);
       if(!image?.id) throw new Error('NO_MAPILLARY_IMAGERY');
       setImageId(String(image.id));
+      setFallbackImage(String(image.thumb_2048_url||''));
+      setCaptureDate(image.captured_at ? new Date(Number(image.captured_at)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '');
       if(!mapillaryViewerRef.current){
         mapillaryViewerRef.current=new mly.Viewer({
           accessToken:MAPILLARY_TOKEN,
-          container:viewerRef.current,
+          container:'north-splash-mapillary-viewer',
           imageId:String(image.id),
           component:{cover:false,sequence:true,zoom:true},
         });
+        window.requestAnimationFrame(()=>mapillaryViewerRef.current?.resize?.());
+        window.setTimeout(()=>mapillaryViewerRef.current?.resize?.(),250);
+        window.setTimeout(()=>mapillaryViewerRef.current?.resize?.(),900);
       }else{
         await mapillaryViewerRef.current.moveTo(String(image.id));
         mapillaryViewerRef.current.resize?.();
@@ -200,7 +207,9 @@ export default function TerritoryStreetView({ houses, activeHouse, onActiveHouse
 
           <div className="territory-streetview-grid">
             <div className="streetview-viewer-shell">
-              <div ref={viewerRef} className="streetview-viewer" />
+              {fallbackImage&&<img className="streetview-static-fallback" src={fallbackImage} alt={current?.address?`Street imagery near ${current.address}`:'Mapillary street imagery'} />}
+              <div id="north-splash-mapillary-viewer" ref={viewerRef} className="streetview-viewer" />
+              {available===true&&<div className="streetview-live-badge"><span/>Interactive Mapillary{captureDate?` · ${captureDate}`:''}</div>}
               {!current && <div className="streetview-overlay"><House size={34}/><strong>No house selected</strong><span>Preview or load houses first.</span></div>}
               {current && loading && <div className="streetview-overlay"><RefreshCw className="spin" size={28}/><strong>Finding nearest free street imagery…</strong><span>{current.address || `${current.latitude.toFixed(5)}, ${current.longitude.toFixed(5)}`}</span></div>}
               {current && !loading && available === false && <div className="streetview-overlay streetview-error"><KeyRound size={28}/><strong>Street imagery unavailable</strong><span>{error}</span><a className="btn-primary" target="_blank" rel="noreferrer" href={externalMapillaryUrl(current,imageId)}>Check Mapillary <ExternalLink size={14}/></a></div>}
@@ -217,6 +226,7 @@ export default function TerritoryStreetView({ houses, activeHouse, onActiveHouse
               </div>
             </aside>
           </div>
+          {current&&<div className="streetview-footer"><div><strong>Free street-level review</strong><span>If WebGL is unavailable, the latest Mapillary capture remains visible as a photo fallback.</span></div><a className="btn-outline" href={externalMapillaryUrl(current,imageId)} target="_blank" rel="noreferrer">Open full Mapillary <ExternalLink size={14}/></a></div>}
         </div>
       )}
     </section>

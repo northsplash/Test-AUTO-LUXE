@@ -20,7 +20,7 @@ import { buildAppleMapsUrl, localDateTime, sameLocalDay, startOfWeek } from '@/l
 
 type Tab='home'|'jobs'|'map'|'messages'|'schedule'|'timeclock'|'pay'|'timeoff'|'tasks'|'training';
 type Location={latitude:number;longitude:number;accuracy?:number};
-const surface:React.CSSProperties={background:'#9d7651',color:'#fff',border:'1px solid #b89572',borderRadius:18,padding:20};
+const surface:React.CSSProperties={background:'#fffdf9',color:'#211811',border:'1px solid #e3d6ca',borderRadius:18,padding:20,boxShadow:'0 12px 34px rgba(48,32,21,.055)'};
 
 export default function EmployeePortal(){
   const {user,profile,loading}=useAuth();const navigate=useNavigate();const [tab,setTab]=useState<Tab>('home');const [sidebar,setSidebar]=useState(false);const [groups,setGroups]=useState<Record<string,boolean>>({today:true,work:true,account:false});
