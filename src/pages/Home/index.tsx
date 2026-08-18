@@ -10,7 +10,7 @@ import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } 
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
 
-const OS_URL = (import.meta.env.VITE_OS_URL || 'https://app.northsplash.com').replace(/\/$/, '');
+const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 
 type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
@@ -81,8 +81,8 @@ export default function Home() {
     if (id === 'booking') {
       setActiveTab('booking');
       setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } else if (id === 'contact') {
-      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (id === 'contact' || id === 'reviews') {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     } else {
       setActiveTab(id as TabId);
       setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -716,6 +716,52 @@ export default function Home() {
           )}
         </section>
       )}
+
+      {/* REVIEWS - always visible */}
+      <section id="reviews" className="reviews-section">
+        <FadeIn className="reviews-heading">
+          <p className="eyebrow">CLIENT EXPERIENCE</p>
+          <h2>Built to earn the<br /><em>five-star feeling.</em></h2>
+          <p>
+            Great detailing should be easy to notice and easy to remember. This space is ready for verified
+            North Splash customer reviews as they are collected.
+          </p>
+        </FadeIn>
+
+        <div className="reviews-grid">
+          <FadeIn className="review-card review-card-featured" delay={80}>
+            <div className="review-stars" aria-label="Five star standard">
+              {[0, 1, 2, 3, 4].map(i => <Star key={i} size={18} fill="currentColor" />)}
+            </div>
+            <span className="review-kicker">YOUR EXPERIENCE MATTERS</span>
+            <h3>Already detailed by North Splash?</h3>
+            <p>
+              Tell us what stood out — the finish, convenience, communication, or overall service. We only want
+              real customer feedback shown here.
+            </p>
+            <a
+              className="review-action"
+              href="mailto:support@northsplash.com?subject=North%20Splash%20Auto%20Luxe%20Review"
+            >
+              Share your review <ArrowRight size={14} />
+            </a>
+          </FadeIn>
+
+          <FadeIn className="review-card" delay={160}>
+            <div className="review-number">01</div>
+            <span className="review-kicker">QUALITY</span>
+            <h3>Finish-first service</h3>
+            <p>Every package is designed around visible results, careful workmanship, and protection that fits the vehicle.</p>
+          </FadeIn>
+
+          <FadeIn className="review-card" delay={240}>
+            <div className="review-number">02</div>
+            <span className="review-kicker">CONVENIENCE</span>
+            <h3>Mobile by design</h3>
+            <p>Book the service you need and let North Splash bring the detailing experience to you.</p>
+          </FadeIn>
+        </div>
+      </section>
 
       {/* CONTACT - always visible at bottom */}
       <section id="contact" className="contact-section">
