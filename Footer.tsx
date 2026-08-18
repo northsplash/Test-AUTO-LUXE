@@ -1,6 +1,6 @@
 import { Phone, Mail, Instagram, Facebook } from 'lucide-react';
 
-const OS_URL = (import.meta.env.VITE_OS_URL || 'https://app.northsplash.com').replace(/\/$/, '');
+const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 
 type Props = {
   onScrollTo?: (id: string) => void;
@@ -43,6 +43,7 @@ export function Footer({ onScrollTo }: Props) {
           <h4>Company</h4>
           <button onClick={() => scroll('packages')}>Packages</button>
           <button onClick={() => scroll('membership')}>Membership</button>
+          <button onClick={() => scroll('reviews')}>Reviews</button>
           <a href={`${OS_URL}/login`}>Customer Portal</a>
           <a href={`${OS_URL}/login`}>Sign In</a>
           <a href={`${OS_URL}/login?mode=signup`}>Create Account</a>
@@ -61,7 +62,7 @@ export function Footer({ onScrollTo }: Props) {
 
       <div className="footer-bottom">
         <small>© 2026 North Splash Auto Luxe. All rights reserved.</small>
-        <small>Powered by NS Venture Works</small>
+        <small><a className="footer-powered" href="https://northsplash.shop" target="_blank" rel="noopener noreferrer">Powered by NS Venture Works</a></small>
       </div>
     </footer>
   );
