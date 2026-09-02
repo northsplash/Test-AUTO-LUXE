@@ -1720,3 +1720,68 @@ h4 { font-size: 16px; }
 /* North Splash mobile + brand refinement — active production source */
 .nav-logo-image{width:62px;height:62px;object-fit:contain;border-radius:10px;display:block}.nav-brand-copy{display:flex;flex-direction:column}.footer-logo-image{width:118px;height:92px;object-fit:contain;display:block;margin-bottom:14px}.nav-links button{position:relative;transition:color .22s ease,transform .22s ease}.nav-links button:after{content:'';position:absolute;left:50%;right:50%;bottom:-8px;height:1px;background:currentColor;transition:left .22s ease,right .22s ease}.nav-links button:hover:after{left:0;right:0}.nav-links button:hover{transform:translateY(-1px)}
 @media(max-width:760px){.nav-header{padding-left:18px!important;padding-right:14px!important}.nav-logo-image{width:54px;height:54px}.nav-brand-copy strong{font-size:13px!important;letter-spacing:.22em!important}.nav-brand-copy small{font-size:9px!important}.nav-right{gap:8px!important}.nav-cta{display:inline-flex!important;min-width:44px!important;padding:0 10px!important;font-size:0!important}.nav-cta svg{width:18px;height:18px}.nav-book{display:none!important}.menu-toggle{display:grid!important}.nav-links.nav-open{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:0!important;z-index:999!important;background:rgba(8,8,8,.98)!important;padding:110px 28px max(34px,env(safe-area-inset-bottom))!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:0!important}.nav-links.nav-open button{font-size:24px!important;text-align:left!important;padding:18px 4px!important;border-bottom:1px solid rgba(255,255,255,.12)!important}.hero-title{font-size:clamp(54px,15vw,78px)!important;line-height:.9!important}.hero-subtitle{font-size:16px!important;line-height:1.55!important}.hero-actions{display:grid!important;grid-template-columns:1fr!important}.hero-stats{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important}.hero-stat{min-width:0!important;padding:0 10px!important}.hero-stat strong{font-size:32px!important}.hero-stat span{font-size:8px!important;letter-spacing:.14em!important}.hero-stat:nth-child(3){grid-column:auto!important}.tab-nav,.tabs-nav,.service-tabs{overflow-x:auto!important;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none}.tab-nav::-webkit-scrollbar,.tabs-nav::-webkit-scrollbar,.service-tabs::-webkit-scrollbar{display:none}.tab-nav button,.tabs-nav button,.service-tabs button{scroll-snap-align:start;flex:0 0 auto;transition:background .22s ease,color .22s ease,border-color .22s ease,transform .22s ease}}
+
+/* ======================================================================
+   MOBILE STABILITY PATCH V4 — iPhone / Android / iPad
+   Fixes menu layering, hero collisions, horizontal overflow and touch nav.
+   ====================================================================== */
+html,body,#root{max-width:100%;overflow-x:clip}
+
+@media (max-width: 768px){
+  .nav-header{
+    position:fixed!important;top:0!important;left:0!important;right:0!important;
+    width:100%!important;max-width:100vw!important;z-index:10000!important;
+    min-height:82px!important;padding:max(12px,env(safe-area-inset-top)) 16px 12px!important;
+    box-sizing:border-box!important;background:rgba(5,5,5,.96)!important;
+    backdrop-filter:blur(18px)!important;-webkit-backdrop-filter:blur(18px)!important;
+  }
+  .nav-brand{position:relative!important;z-index:10002!important;min-width:0!important;max-width:calc(100vw - 122px)!important}
+  .nav-logo-image{width:48px!important;height:48px!important;flex:0 0 48px!important}
+  .nav-brand-copy{min-width:0!important}.nav-brand-copy strong{font-size:12px!important;white-space:nowrap!important}.nav-brand-copy small{font-size:8px!important;white-space:nowrap!important}
+  .nav-right{position:relative!important;z-index:10002!important;margin-left:auto!important;flex:0 0 auto!important}
+  .nav-cta{display:grid!important;place-items:center!important;width:42px!important;height:42px!important;min-width:42px!important;padding:0!important;font-size:0!important}
+  .menu-toggle{display:grid!important;place-items:center!important;width:42px!important;height:42px!important;position:relative!important;z-index:10003!important}
+  .nav-book{display:none!important}
+
+  /* Critical: closed menu must never leak into the page. */
+  .nav-links:not(.nav-open){display:none!important;visibility:hidden!important;pointer-events:none!important}
+  .nav-links.nav-open{
+    display:flex!important;visibility:visible!important;pointer-events:auto!important;
+    position:fixed!important;inset:0!important;z-index:10001!important;
+    width:100vw!important;height:100dvh!important;margin:0!important;
+    padding:calc(100px + env(safe-area-inset-top)) 28px max(34px,env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+    flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:0!important;
+    background:#070707!important;opacity:1!important;
+  }
+  .nav-links.nav-open button{
+    display:block!important;width:100%!important;margin:0!important;padding:17px 8px!important;
+    border:0!important;border-bottom:1px solid rgba(255,255,255,.14)!important;border-radius:0!important;
+    background:transparent!important;color:#f1f1ef!important;text-align:left!important;
+    font-size:22px!important;line-height:1.15!important;font-weight:500!important;letter-spacing:.01em!important;
+    transform:none!important;opacity:1!important;
+  }
+  .nav-links.nav-open button:after{display:none!important}
+
+  .hero-section{min-height:100svh!important;height:auto!important;overflow:hidden!important}
+  .hero-content{padding:clamp(150px,20vh,190px) 22px 64px!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}
+  .hero-title{font-size:clamp(52px,14vw,76px)!important;line-height:.88!important;letter-spacing:-.055em!important;max-width:100%!important}
+  .hero-title em{display:block!important;white-space:normal!important}
+  .hero-copy,.hero-subtitle{max-width:100%!important;font-size:15px!important;line-height:1.55!important}
+  .hero-actions{width:100%!important;grid-template-columns:1fr!important;gap:10px!important}.hero-actions>*{width:100%!important;box-sizing:border-box!important}
+  .hero-stats{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important;margin-top:44px!important;gap:20px 0!important}
+  .hero-stat{padding:0 16px!important;min-width:0!important}.hero-stat:first-child{padding-left:0!important}.hero-stat:nth-of-type(3){grid-column:1 / -1!important;padding-left:0!important}
+  .hero-stat-divider{display:none!important}
+
+  /* Never allow desktop tab/navigation rows to sit over page content. */
+  .tab-nav,.tabs-nav,.service-tabs{max-width:100vw!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;position:relative!important;z-index:2!important}
+  main,section,.section,.page-section{max-width:100vw!important;box-sizing:border-box!important}
+  img,video{max-width:100%;height:auto}
+}
+
+@media (max-width: 430px){
+  .nav-header{padding-left:12px!important;padding-right:10px!important}.nav-logo-image{width:44px!important;height:44px!important;flex-basis:44px!important}
+  .nav-brand-copy strong{font-size:11px!important;letter-spacing:.18em!important}.nav-brand-copy small{font-size:7px!important}
+  .nav-cta,.menu-toggle{width:40px!important;height:40px!important;min-width:40px!important}
+  .hero-content{padding-left:18px!important;padding-right:18px!important}.hero-title{font-size:clamp(48px,14.5vw,66px)!important}.hero-stat strong{font-size:30px!important}
+}
