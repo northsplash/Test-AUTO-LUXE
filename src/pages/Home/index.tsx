@@ -64,7 +64,7 @@ export default function Home() {
 
   useEffect(() => {
     if (heroVisible) {
-      const target = 500;
+      const target = 250;
       const duration = 2000;
       const step = target / (duration / 16);
       let current = 0;

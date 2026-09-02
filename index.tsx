@@ -349,7 +349,7 @@ export default function Home() {
 
       {/* TAB CONTENT */}
       {activeTab !== null && (
-        <section key={activeTab} className="tab-content-section tab-content-enter">
+        <section className="tab-content-section">
           <div className="tab-content-header">
             <button className="tab-back" onClick={closeTab}>
               <ArrowLeft size={16} /> Back to overview

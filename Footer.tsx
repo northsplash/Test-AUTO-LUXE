@@ -14,7 +14,7 @@ export function Footer({ onScrollTo }: Props) {
       <div className="footer-grid">
         <div className="footer-brand-col">
           <div className="footer-brand">
-            <img className="footer-logo-image" src="/ns-auto-luxe-logo.png" alt="North Splash Auto Luxe"/>
+            <div className="brand-mark brand-mark-sm">NS</div>
             <div>
               <strong>NORTH SPLASH</strong>
               <small>AUTO LUXE</small>
