@@ -133,10 +133,7 @@ export default function Apply() {
           <Link className="apply-back" to="/"><ArrowLeft size={16} /> Back to the site</Link>
           <p className="eyebrow">CAREERS · NORTH CAROLINA</p>
           <h1>Apply to work at North Splash.</h1>
-          <p>
-            Three seats are open statewide: mobile detailer, door-to-door sales, and operations / concierge.
-            Read the role, answer the questions in your own words, and send it. No account required — hiring reviews every application by hand.
-          </p>
+          <p>Pick a seat, answer in your own words, send it. No account. Hiring reads every application.</p>
           <span className="apply-market"><MapPin size={14} /> {MARKET.region} · {MARKET.phone}</span>
         </section>
 

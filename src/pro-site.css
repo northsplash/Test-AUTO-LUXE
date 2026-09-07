@@ -249,10 +249,27 @@ body { overflow-x: hidden; }
   .apply-shell {
     padding: calc(92px + env(safe-area-inset-top)) 18px 48px !important;
     box-sizing: border-box !important;
+    gap: 18px !important;
+  }
+  .apply-intro h1 {
+    font-size: 32px !important;
+    letter-spacing: -.03em !important;
+    margin: 6px 0 8px !important;
+  }
+  .apply-intro > p { margin: 0; font-size: 14px; }
+  .apply-market { margin-top: 10px !important; }
+  .apply-panel { padding: 18px 16px !important; }
+  .apply-roles h2 { font-size: 22px !important; margin: 0 0 8px !important; }
+  .apply-actions {
+    position: sticky;
+    bottom: 8px;
+    background: #fff;
+    padding-top: 10px;
   }
   .apply-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 14px 10px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin-bottom: 16px !important;
   }
   .apply-steps li { min-width: 0; text-align: center; }
 }
