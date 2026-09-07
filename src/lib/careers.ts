@@ -42,7 +42,7 @@ export const OPEN_ROLES: OpenRole[] = [
   {
     id: 'd2d_agent',
     title: 'Door-to-door Sales',
-    pay: 'Base + commission · $400–$1,200 weeks',
+    pay: 'Base + commission · $400–$1,200 / week',
     summary:
       'You knock neighborhoods we already map, book mobile details, and turn a five-minute porch conversation into a paid appointment. This is field sales, not a call-center seat.',
     duties: [
