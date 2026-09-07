@@ -138,7 +138,7 @@ body { overflow-x: hidden; }
   .btn-ghost,
   .nav-book { min-height: 48px; }
   .hero {
-    min-height: auto !important;
+    min-height: 100svh !important;
     height: auto !important;
     overflow: visible !important;
   }
