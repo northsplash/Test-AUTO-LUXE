@@ -196,9 +196,14 @@ export default function Home() {
   useEffect(() => {
     const id = location.hash.replace('#', '');
     if (!TABS.some((tab) => tab.id === id) || activeTab !== id) return;
-    const jump = () => tabRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    const jump = () => {
+      const node = tabRef.current;
+      if (!node) return;
+      const top = node.getBoundingClientRect().top + window.scrollY - 84;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+    };
     jump();
-    const timer = window.setTimeout(jump, 250);
+    const timer = window.setTimeout(jump, 300);
     return () => window.clearTimeout(timer);
   }, [activeTab, location.hash]);
 
