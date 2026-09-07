@@ -1340,7 +1340,7 @@ h4 { font-size: 16px; }
 
 .compare-family-nav { justify-content: center; }
 .compare-family-blurb { text-align: center; color: var(--muted); max-width: 640px; margin: -12px auto 36px; font-size: 14px; line-height: 1.6; }
-.compare-wrap { overflow-x: auto; margin: 48px 0 8px; border: 1px solid var(--line); background: var(--white); }
+.compare-wrap { overflow-x: auto; margin: 8px 0 40px; border: 1px solid var(--line); background: var(--white); }
 .compare-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .compare-table th, .compare-table td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; }
 .compare-table thead th { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; background: #f7f1e8; }
