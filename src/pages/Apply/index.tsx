@@ -13,6 +13,15 @@ import {
   type RoleId,
 } from '@/lib/careers';
 
+const EXPERIENCE_LABEL: Record<string, string> = {
+  '': 'Not listed',
+  '0': 'Less than a year',
+  '1': '1 year',
+  '2': '2 years',
+  '3': '3–4 years',
+  '5': '5+ years',
+};
+
 const STEPS = [
   { n: 1, label: 'Role' },
   { n: 2, label: 'You' },
@@ -87,7 +96,7 @@ export default function Apply() {
           <Link className="apply-back" to="/"><ArrowLeft size={16} /> Back to the site</Link>
           <p className="eyebrow">CAREERS · NORTH CAROLINA</p>
           <h1>Apply to work at North Splash.</h1>
-          <p>We hire people who will represent the finish at someone’s driveway. Detailers, door-to-door reps, and operations support across the state — not a single shop ZIP.</p>
+          <p>We hire people who will represent the finish at someone’s driveway. Detailers, door-to-door reps, and operations support all over North Carolina — not a single shop ZIP.</p>
           <span className="apply-market"><MapPin size={14} /> {MARKET.region} · {MARKET.phone}</span>
         </section>
 
@@ -145,7 +154,7 @@ export default function Apply() {
                   <h2>How do we reach you?</h2>
                   <div className="form-row">
                     <label className="form-group"><span>Full name</span><input autoComplete="name" required value={form.full_name} onChange={(e) => patch({ full_name: e.target.value })} /></label>
-                    <label className="form-group"><span>City in North Carolina</span><input autoComplete="address-level2" placeholder="Durham, Charlotte, Wilmington…" value={form.city} onChange={(e) => patch({ city: e.target.value })} /></label>
+                    <label className="form-group"><span>City in North Carolina</span><input autoComplete="address-level2" required placeholder="Durham, Charlotte, Wilmington…" value={form.city} onChange={(e) => patch({ city: e.target.value })} /></label>
                   </div>
                   <div className="form-row">
                     <label className="form-group"><span>Email</span><input type="email" autoComplete="email" required value={form.email} onChange={(e) => patch({ email: e.target.value })} /></label>
@@ -205,7 +214,7 @@ export default function Apply() {
                     <div><dt>Contact</dt><dd>{form.email} · {form.phone}</dd></div>
                     <div><dt>City</dt><dd>{form.city}, NC</dd></div>
                     <div><dt>Availability</dt><dd>{form.availability}{form.weekends ? ' · weekends' : ''}</dd></div>
-                    <div><dt>Experience</dt><dd>{form.years_experience === '' ? 'Not listed' : form.years_experience === '0' ? 'Less than a year' : `${form.years_experience}+ years`}</dd></div>
+                    <div><dt>Experience</dt><dd>{EXPERIENCE_LABEL[form.years_experience] || 'Not listed'}</dd></div>
                     <div><dt>Transportation</dt><dd>{form.transportation ? 'Reliable transportation' : 'Needs a plan'}</dd></div>
                     <div><dt>Why</dt><dd>{form.why}</dd></div>
                   </dl>

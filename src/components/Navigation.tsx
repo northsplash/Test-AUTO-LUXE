@@ -44,7 +44,7 @@ export function Navigation({ onScrollTo, isHomePage }: Props) {
   const go = (id: string) => {
     setMenuOpen(false);
     if (isHomePage && onScrollTo) onScrollTo(id);
-    else navigate(`/#${id}`);
+    else navigate({ pathname: '/', hash: id });
   };
 
   return (

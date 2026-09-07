@@ -313,8 +313,8 @@ export default function Checkout() {
           <section className="luxe-checkout-card">
             <p className="eyebrow">SECURE CHECKOUT</p>
             <h1>No booking to complete</h1>
-            <p>Start from the detailing site, choose a service, and we will bring you back here to pay.</p>
-            <Link className="btn-white" to="/#booking">Book a detail</Link>
+            <p>Start from the detailing site, choose a service, and we will bring you back here to pay. Or call {MARKET.phone} to book by phone.</p>
+            <Link className="btn-white" to={{ pathname: '/', hash: 'booking' }}>Book a detail</Link>
           </section>
         </main>
         <Footer />

@@ -1,4 +1,4 @@
-const CACHE = 'north-splash-site-v12-statewide-nc';
+const CACHE = 'north-splash-site-v13-audit';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/ns-auto-luxe-full-logo.png', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {

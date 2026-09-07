@@ -24,12 +24,12 @@ export const DETAIL_FAMILY_COPY: Record<DetailFamily, { title: string; kicker: s
   exterior: {
     title: 'Exterior',
     kicker: 'Paint, wheels, glass',
-    blurb: 'Three selves of the driveway wash — refresh, decontaminate, or protect.',
+    blurb: 'Three levels of the driveway wash — Essential, Signature, or Elite.',
   },
   interior: {
     title: 'Interior',
     kicker: 'Cabin, leather, carpets',
-    blurb: 'Three selves of the cabin reset — tidy, deep clean, or extract.',
+    blurb: 'Three levels of the cabin reset — Essential, Signature, or Elite.',
   },
   full: {
     title: 'Full vehicle',
@@ -134,7 +134,7 @@ const PACKAGES_SRC: Array<Omit<DetailPackage, 'features' | 'checklist'>> = [
   { id: 'interior-elite', family: 'interior', self: 'elite', name: 'Interior Elite', price: 325, minutes: 180, tag: 'The full treatment', desc: 'Extraction, leather treatment, crevice work, and interior protection.' },
   { id: 'full-essential', family: 'full', self: 'essential', name: 'Luxe Essential', price: 175, minutes: 150, tag: 'The refresh', desc: 'Exterior Essential plus Interior Essential in one visit.' },
   { id: 'full-signature', family: 'full', self: 'signature', name: 'Luxe Signature', price: 275, minutes: 210, tag: 'Most popular', desc: 'Our balanced full-detail: Exterior Signature with Interior Signature.', featured: true },
-  { id: 'full-elite', family: 'full', self: 'elite', name: 'Luxe Elite', price: 450, minutes: 300, tag: 'The full treatment', desc: 'Both Elite selves — paint enhancement and a deep interior extraction.' },
+  { id: 'full-elite', family: 'full', self: 'elite', name: 'Luxe Elite', price: 450, minutes: 300, tag: 'The full treatment', desc: 'Both Elite packages — paint enhancement and a deep interior extraction.' },
 ];
 
 export const DETAIL_PACKAGES: DetailPackage[] = PACKAGES_SRC.map((pkg) => ({

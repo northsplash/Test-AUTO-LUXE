@@ -28,9 +28,28 @@ function localYmd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function slotMinutes(slot: string) {
+  const m = slot.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return 0;
+  let hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && hour < 12) hour += 12;
+  if (ap === 'AM' && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function availableSlots(date: string) {
+  const today = localYmd(new Date());
+  if (date !== today) return [...BOOK_SLOTS];
+  const now = new Date();
+  const cutoff = now.getHours() * 60 + now.getMinutes() + 90;
+  return BOOK_SLOTS.filter((slot) => slotMinutes(slot) >= cutoff);
+}
+
 function preferredDateOptions() {
   const start = new Date();
-  return Array.from({ length: 14 }, (_, i) => {
+  const days = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     return {
@@ -38,6 +57,7 @@ function preferredDateOptions() {
       label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
     };
   });
+  return availableSlots(days[0].value).length ? days : days.slice(1);
 }
 
 function tomorrowYmd() {
@@ -148,9 +168,10 @@ export default function Home() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', address: '', notes: '', preferred_date: tomorrowYmd(), preferred_time: '10:00 AM' });
   const [bookingReceipt, setBookingReceipt] = useState<{ id?: string; service: string; when: string; where: string; name: string } | null>(null);
   const [heroVisible, setHeroVisible] = useState(false);
-  const [counterVal, setCounterVal] = useState(0);
   const tabRef = useRef<HTMLDivElement>(null);
   const heroShift = useParallax(0.34);
+  const dateOptions = preferredDateOptions();
+  const timeSlots = availableSlots(formData.preferred_date);
 
   useEffect(() => {
     setTimeout(() => setHeroVisible(true), 100);
@@ -171,19 +192,16 @@ export default function Home() {
   }, [location.hash]);
 
   useEffect(() => {
-    if (heroVisible) {
-      const target = 250;
-      const duration = 2000;
-      const step = target / (duration / 16);
-      let current = 0;
-      const timer = setInterval(() => {
-        current = Math.min(current + step, target);
-        setCounterVal(Math.round(current));
-        if (current >= target) clearInterval(timer);
-      }, 16);
-      return () => clearInterval(timer);
+    const dates = preferredDateOptions();
+    const date = dates.some((d) => d.value === formData.preferred_date) ? formData.preferred_date : dates[0].value;
+    const open = availableSlots(date);
+    const time = open.includes(formData.preferred_time as (typeof BOOK_SLOTS)[number])
+      ? formData.preferred_time
+      : (open[0] || formData.preferred_time);
+    if (date !== formData.preferred_date || time !== formData.preferred_time) {
+      setFormData((p) => ({ ...p, preferred_date: date, preferred_time: time }));
     }
-  }, [heroVisible]);
+  }, [formData.preferred_date, formData.preferred_time]);
 
   const setHash = (id: string) => {
     if (location.hash.replace('#', '') === id) return;
@@ -228,7 +246,7 @@ export default function Home() {
     const queryOk = !q || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
     return groupOk && queryOk;
   });
-  const preferredWhen = `${preferredDateOptions().find((d) => d.value === formData.preferred_date)?.label || formData.preferred_date} · ${formData.preferred_time}`;
+  const preferredWhen = `${dateOptions.find((d) => d.value === formData.preferred_date)?.label || formData.preferred_date} · ${formData.preferred_time}`;
   const estimateLines = [
     selectedBookable.name + (selectedBookable.id === 'ceramic-coating' ? ` (${coatingYears}-year)` : ''),
     VEHICLE_SIZES[vehicle].name,
@@ -255,6 +273,10 @@ export default function Home() {
   const advanceBooking = () => {
     if (bookingStep === 3 && !formData.address.trim()) {
       setBookingError('Add the service address so we know where to meet you.');
+      return;
+    }
+    if (bookingStep === 3 && !availableSlots(formData.preferred_date).length) {
+      setBookingError('That date is full for today. Pick another window.');
       return;
     }
     setBookingError('');
@@ -306,7 +328,12 @@ export default function Home() {
           source_channel: 'northsplash.com',
         },
       });
-      if (error) throw error;
+      if (error) {
+        const fnError = data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string'
+          ? String((data as { error: string }).error)
+          : '';
+        throw new Error(fnError || error.message);
+      }
       if (!data?.success) throw new Error(data?.error || 'Unable to submit booking.');
       setBookingReceipt({
         id: data.appointment_id,
@@ -317,7 +344,10 @@ export default function Home() {
       });
       setFormSent(true);
     } catch (err: any) {
-      setBookingError(err?.message || 'Unable to submit your booking right now. Please try again.');
+      const raw = String(err?.message || '');
+      setBookingError(/failed to fetch|functionshttperror|non-2xx|edge function/i.test(raw)
+        ? `Unable to send your request right now. Call ${MARKET.phone} and we will book you by phone.`
+        : (raw || 'Unable to submit your booking right now. Please try again.'));
     } finally {
       setBookingSending(false);
     }
@@ -392,13 +422,13 @@ export default function Home() {
 
           <div className="hero-stats">
             <div className="hero-stat">
-              <strong>{counterVal}+</strong>
-              <span>Vehicles Detailed</span>
+              <strong>{SERVICES.length}</strong>
+              <span>Studio Services</span>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
-              <strong>5★</strong>
-              <span>Client Rating</span>
+              <strong>NC</strong>
+              <span>All Over The State</span>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
@@ -408,7 +438,7 @@ export default function Home() {
           </div>
         </div>
 
-        <button className="hero-scroll" onClick={() => scrollTo('services')}>
+        <button type="button" className="hero-scroll" onClick={() => scrollTo('services')} aria-label="Explore services">
           <ChevronDown size={22} />
         </button>
       </section>
@@ -426,7 +456,7 @@ export default function Home() {
               [Sparkles, 'Precision Detail', 'Every panel, every surface'],
               [Shield, 'Long-Term Protection', 'Ceramic & sealant options'],
               [Star, 'White Glove Service', 'Concierge available'],
-              [Zap, 'Fast Turnaround', 'Most services same-day'],
+              [Zap, 'Fast Turnaround', 'Mobile to your driveway'],
             ].map(([Icon, title, sub]) => (
               <div className="intro-pillar" key={String(title)}>
                 <div className="pillar-icon"><Icon size={18} /></div>
@@ -465,7 +495,7 @@ export default function Home() {
         <Filmstrip
           frames={[
             { src: serviceByTitle('Exterior Signature').image, caption: 'Exterior Signature' },
-            { src: serviceByTitle('Interior Signature').image, caption: 'Interior Care' },
+            { src: serviceByTitle('Interior Signature').image, caption: 'Interior Signature' },
             { src: serviceByTitle('Luxe Signature').image, caption: 'Luxe Signature' },
             { src: serviceByTitle('Paint Correction').image, caption: 'Paint Correction' },
             { src: serviceByTitle('Ceramic').image, caption: 'Ceramic Coating' },
@@ -947,14 +977,14 @@ export default function Home() {
               <div className="process-section" style={{ marginTop: '40px' }}>
                 <FadeIn className="center-heading">
                   <p className="eyebrow">THE PROCESS</p>
-                  <h2>Simple from booking to pickup.</h2>
+                  <h2>Simple from booking to driveway.</h2>
                 </FadeIn>
                 <div className="process-grid">
                   {[
                     ['01', 'Choose Your Service', 'Select the package or service your vehicle needs.'],
                     ['02', 'Tell Us About Your Vehicle', 'Share the year, make, model, size, and condition.'],
                     ['03', 'Schedule', 'Pick a preferred date and time. We confirm that window by phone or email.'],
-                    ['04', 'Experience Auto Luxe', 'Drop off or request concierge service.'],
+                    ['04', 'Experience Auto Luxe', 'We come to your driveway. Concierge when you want the keys handled.'],
                     ['05', 'Drive Away Different', 'Leave with a vehicle ready to be noticed.'],
                   ].map(([num, title, desc], i) => (
                     <FadeIn key={num} delay={i * 80} className="process-card">
@@ -1033,7 +1063,9 @@ export default function Home() {
                                     onClick={() => setSelectedServiceId(p.id)}
                                   >
                                     <span>{p.name}</span>
-                                    <strong>{money(p.price)}+</strong>
+                                    <strong>{money(p.id === 'ceramic-coating'
+                                      ? (COATING_TIERS.find((tier) => tier.years === coatingYears)?.price ?? p.price)
+                                      : p.price)}+</strong>
                                   </button>
                                 ))}
                               </div>
@@ -1107,7 +1139,7 @@ export default function Home() {
                             <div className="form-group">
                               <label>Preferred date</label>
                               <select value={formData.preferred_date} onChange={e => setFormData(p => ({...p, preferred_date: e.target.value}))}>
-                                {preferredDateOptions().map((d) => (
+                                {dateOptions.map((d) => (
                                   <option key={d.value} value={d.value}>{d.label}</option>
                                 ))}
                               </select>
@@ -1115,7 +1147,7 @@ export default function Home() {
                             <div className="form-group">
                               <label>Preferred time</label>
                               <select value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
-                                {BOOK_SLOTS.map((slot) => <option key={slot}>{slot}</option>)}
+                                {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
                               </select>
                             </div>
                           </div>
@@ -1178,7 +1210,7 @@ export default function Home() {
                         {formData.address.trim() && <li>{formData.address.trim()}</li>}
                       </ul>
                       <div className="estimate-savings">
-                        Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
+                        Estimate only — we confirm the total before we start.
                       </div>
                     </div>
                     <div className="portal-cta-box">
@@ -1271,7 +1303,7 @@ export default function Home() {
             </p>
             <a
               className="review-action"
-              href="mailto:support@northsplash.com?subject=North%20Splash%20Auto%20Luxe%20Review"
+              href={`mailto:${MARKET.email}?subject=North%20Splash%20Auto%20Luxe%20Review`}
             >
               Share your review <ArrowRight size={14} />
             </a>
