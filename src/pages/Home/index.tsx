@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
   Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft, Clock,
@@ -1305,6 +1305,7 @@ export default function Home() {
           <span className="contact-link">{MARKET.region}</span>
           <a href={`mailto:${MARKET.email}`} className="contact-link">{MARKET.email}</a>
           <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
+          <Link className="btn-ghost-light" to="/apply">Apply for a job</Link>
         </FadeIn>
       </section>
 

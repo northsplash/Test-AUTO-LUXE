@@ -1,3 +1,4 @@
+import { Link, useLocation } from 'react-router-dom';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { MARKET } from '@/lib/market';
 
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function Footer({ onScrollTo }: Props) {
+  const { pathname } = useLocation();
   const scroll = (id: string) => {
     if (onScrollTo) onScrollTo(id);
     else window.location.assign(`/#${id}`);
@@ -38,6 +40,7 @@ export function Footer({ onScrollTo }: Props) {
           <button type="button" onClick={() => scroll('membership')}>Membership</button>
           <button type="button" onClick={() => scroll('faq')}>FAQ</button>
           <button type="button" onClick={() => scroll('reviews')}>Reviews</button>
+          <Link to="/apply">Careers</Link>
           <a href={`${OS_URL}/login`}>Customer Portal</a>
           <a href={`${OS_URL}/login`}>Sign In</a>
           <a href={`${OS_URL}/login?mode=signup`}>Create Account</a>
@@ -56,6 +59,16 @@ export function Footer({ onScrollTo }: Props) {
           </a>
         </div>
       </div>
+
+      {pathname !== '/apply' && (
+        <div className="footer-apply">
+          <div>
+            <strong>Want to work here?</strong>
+            <p>Detailers and door-to-door reps across North Carolina. Four steps. No account required.</p>
+          </div>
+          <Link to="/apply" className="footer-apply-btn">Apply for a job</Link>
+        </div>
+      )}
 
       <div className="footer-bottom">
         <small>© 2026 North Splash Auto Luxe. All rights reserved.</small>

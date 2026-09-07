@@ -1,4 +1,4 @@
-const CACHE = 'north-splash-site-v10-nc';
+const CACHE = 'north-splash-site-v11-careers';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/ns-auto-luxe-full-logo.png', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {

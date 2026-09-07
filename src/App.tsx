@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Home from '@/pages/Home';
 
 const Checkout = lazy(() => import('@/pages/Checkout'));
+const Apply = lazy(() => import('@/pages/Apply'));
 
 function Loader() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
       <Suspense fallback={<Loader />}>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/apply" element={<Apply />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
