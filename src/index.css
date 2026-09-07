@@ -1992,7 +1992,7 @@ body.site-menu-open { overflow: hidden; }
    MOBILE STABILITY PATCH V4 — iPhone / Android / iPad
    Fixes menu layering, hero collisions, horizontal overflow and touch nav.
    ====================================================================== */
-html,body,#root{max-width:100%;overflow-x:clip}
+html,body,#root{max-width:100%;overflow-x:hidden}
 
 @media (max-width: 768px){
   .nav-header{
