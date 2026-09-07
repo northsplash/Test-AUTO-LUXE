@@ -293,7 +293,8 @@ h4 { font-size: 16px; }
 .section-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; margin-bottom: 50px; }
 .section-header > p { max-width: 380px; color: #888; line-height: 1.7; font-size: 14px; margin: 0; }
 
-.filter-row { display: flex; gap: 8px; margin-bottom: 32px; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; }
+.service-minutes { font-size: 11px; letter-spacing: .4px; color: #777; margin: -8px 0 12px; }
 .filter-btn {
   background: transparent; border: 1px solid #282828; color: #888;
   padding: 9px 18px; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
@@ -347,6 +348,12 @@ h4 { font-size: 16px; }
 .center-heading p:last-child { color: var(--muted); font-size: 16px; line-height: 1.7; margin-top: 16px; }
 .center-heading h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 
+.package-family { margin: 0 auto 56px; max-width: 1200px; }
+.package-family-head { text-align: center; max-width: 640px; margin: 0 auto 28px; }
+.package-family-head h3 { font-size: 28px; letter-spacing: -0.5px; margin: 8px 0; }
+.package-family-head p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.package-minutes { font-size: 12px; color: var(--gold); margin: -8px 0 12px; letter-spacing: .4px; }
+.package-featured .package-minutes { color: var(--gold); }
 .packages-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1200px; margin: 0 auto; }
 .package-card {
   padding: 40px 36px; border: 1px solid var(--line);
@@ -529,6 +536,8 @@ h4 { font-size: 16px; }
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--ink); background: var(--white); }
 
+.pkg-group { display: grid; gap: 8px; margin-bottom: 12px; }
+.pkg-group-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .pkg-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .pkg-choice {
   text-align: left; border: 1px solid #ddd; background: var(--paper);

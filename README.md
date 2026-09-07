@@ -4,6 +4,8 @@ This repository is the **customer-facing detailing site**: services, packages, c
 
 Portal login on this site sends people to the **operating system**, which is a separate product.
 
+Service prices and packages on this site follow the same catalog as the OS: nine detail selves (Exterior / Interior / Full × Essential / Signature / Elite), paint correction, ceramic coating tiers, add-ons, and memberships.
+
 ## Two sites
 
 | Site | Repo | Live URL | What it is |

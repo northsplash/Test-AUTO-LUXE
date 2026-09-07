@@ -6,11 +6,32 @@ import {
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
-import { SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money } from '@/lib/data';
+import {
+  SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money,
+  BOOKABLE_SERVICES, DETAIL_FAMILIES, DETAIL_FAMILY_COPY, DEFAULT_PACKAGE_ID,
+  COATING_TIERS, packagesForFamily, serviceSelectGroups,
+} from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
+const SERVICE_FILTERS = ['All', 'Exterior', 'Interior', 'Full', 'Paint', 'Ceramic'] as const;
+const FILTER_CATEGORY: Record<string, string | null> = {
+  All: null,
+  Exterior: 'Exterior',
+  Interior: 'Interior',
+  Full: 'Detail',
+  Paint: 'Paint',
+  Ceramic: 'Ceramic',
+};
+
+function serviceByTitle(needle: string) {
+  return SERVICES.find((s) => s.title.toLowerCase().includes(needle.toLowerCase())) ?? SERVICES[0];
+}
+
+function bookableById(id: string) {
+  return BOOKABLE_SERVICES.find((pkg) => pkg.id === id) ?? BOOKABLE_SERVICES.find((pkg) => pkg.id === DEFAULT_PACKAGE_ID)!;
+}
 
 type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
 
@@ -45,7 +66,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [serviceFilter, setServiceFilter] = useState('All');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState(1);
+  const [selectedServiceId, setSelectedServiceId] = useState(DEFAULT_PACKAGE_ID);
+  const [coatingYears, setCoatingYears] = useState<1 | 3 | 5>(1);
   const [vehicle, setVehicle] = useState(0);
   const [condition, setCondition] = useState('Light');
   const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
@@ -89,19 +111,34 @@ export default function Home() {
     }
   };
 
+  const selectedBookable = bookableById(selectedServiceId);
+
   const estimated = useMemo(() => {
-    const base = PACKAGES[selectedPackage].price;
+    const booked = bookableById(selectedServiceId);
+    const base = booked.id === 'ceramic-coating'
+      ? (COATING_TIERS.find((tier) => tier.years === coatingYears)?.price ?? booked.price)
+      : booked.price;
     const size = VEHICLE_SIZES[vehicle].extra;
     const condExtra = condition === 'Moderate' ? 35 : condition === 'Heavy' ? 75 : condition === 'Severe' ? 125 : 0;
     const extras = selectedAddOns.reduce((sum, i) => sum + ADD_ONS[i][1], 0);
     return base + size + condExtra + extras;
-  }, [selectedPackage, vehicle, condition, selectedAddOns]);
+  }, [selectedServiceId, coatingYears, vehicle, condition, selectedAddOns]);
 
   const toggleAddOn = (i: number) => {
     setSelectedAddOns(c => c.includes(i) ? c.filter(x => x !== i) : [...c, i]);
   };
 
-  const filtered = serviceFilter === 'All' ? SERVICES : SERVICES.filter(s => s.category === serviceFilter);
+  const filterCategory = FILTER_CATEGORY[serviceFilter] ?? null;
+  const filtered = filterCategory ? SERVICES.filter((s) => s.category === filterCategory) : SERVICES;
+
+  const bookService = (title: string) => {
+    const match = BOOKABLE_SERVICES.find((pkg) => pkg.name === title);
+    if (match) {
+      setSelectedServiceId(match.id);
+      if (match.id === 'ceramic-coating') setCoatingYears(1);
+    }
+    openTab('booking');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,8 +150,10 @@ export default function Home() {
           customer_name: formData.name.trim(),
           customer_email: formData.email.trim(),
           customer_phone: formData.phone.trim(),
-          service_name: PACKAGES[selectedPackage].name,
-          package_name: PACKAGES[selectedPackage].name,
+          service_name: selectedBookable.name,
+          package_name: selectedBookable.id === 'ceramic-coating'
+            ? `${selectedBookable.name} (${coatingYears}-year)`
+            : selectedBookable.name,
           add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
           vehicle_info: formData.vehicle.trim(),
           price: estimated,
@@ -251,14 +290,14 @@ export default function Home() {
             {/* Services teaser */}
             <FadeIn className="teaser-card" delay={0}>
               <div className="teaser-img">
-                <img src={SERVICES[0].image} alt="Services" />
+                <img src={serviceByTitle('Exterior Essential').image} alt="Services" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Car size={22} /></div>
               </div>
               <div className="teaser-body">
                 <p className="eyebrow">SERVICES</p>
                 <h3>Care without shortcuts</h3>
-                <p>From exterior refresh to full paint transformation. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
+                <p>Nine detail selves plus paint correction and ceramic coating. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
                 <button className="teaser-link" onClick={() => openTab('services')}>
                   View services <ArrowRight size={13} />
                 </button>
@@ -268,14 +307,14 @@ export default function Home() {
             {/* Packages teaser */}
             <FadeIn className="teaser-card" delay={80}>
               <div className="teaser-img">
-                <img src={SERVICES[2].image} alt="Packages" />
+                <img src={serviceByTitle('Luxe Signature').image} alt="Packages" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Package size={22} /></div>
               </div>
               <div className="teaser-body">
                 <p className="eyebrow">PACKAGES</p>
                 <h3>Choose your level of Luxe</h3>
-                <p>Three signature packages from {money(PACKAGES[0].price)} to {money(PACKAGES[2].price)}. Simple pricing, premium results.</p>
+                <p>Exterior, interior, and full-vehicle selves — Essential, Signature, and Elite — from {money(PACKAGES[0].price)} to {money(PACKAGES[PACKAGES.length - 1].price)}.</p>
                 <button className="teaser-link" onClick={() => openTab('packages')}>
                   Compare packages <ArrowRight size={13} />
                 </button>
@@ -285,7 +324,7 @@ export default function Home() {
             {/* Protection teaser */}
             <FadeIn className="teaser-card" delay={160}>
               <div className="teaser-img">
-                <img src={SERVICES[4].image} alt="Protection" />
+                <img src={serviceByTitle('Ceramic').image} alt="Protection" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Gem size={22} /></div>
               </div>
@@ -302,7 +341,7 @@ export default function Home() {
             {/* Gallery teaser */}
             <FadeIn className="teaser-card" delay={0}>
               <div className="teaser-img">
-                <img src={SERVICES[3].image} alt="Gallery" />
+                <img src={serviceByTitle('Paint Correction').image} alt="Gallery" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Camera size={22} /></div>
               </div>
@@ -319,7 +358,7 @@ export default function Home() {
             {/* Membership teaser */}
             <FadeIn className="teaser-card" delay={80}>
               <div className="teaser-img">
-                <img src={SERVICES[1].image} alt="Membership" />
+                <img src={serviceByTitle('Interior Signature').image} alt="Membership" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Crown size={22} /></div>
               </div>
@@ -369,7 +408,7 @@ export default function Home() {
                 <p>From a polished daily driver to a full paint transformation.</p>
               </FadeIn>
               <div className="filter-row">
-                {['All', 'Detail', 'Paint', 'Ceramic'].map(f => (
+                {SERVICE_FILTERS.map(f => (
                   <button key={f} className={`filter-btn ${serviceFilter === f ? 'filter-active' : ''}`} onClick={() => setServiceFilter(f)}>
                     {f}
                   </button>
@@ -388,11 +427,12 @@ export default function Home() {
                         <h3>{s.title}</h3>
                         <strong className="service-price">{money(s.price)}<sup>+</sup></strong>
                       </div>
+                      <p className="service-minutes">About {s.minutes} minutes</p>
                       <p>{s.desc}</p>
                       <ul>
                         {s.items.map(item => <li key={item}><Check size={11} /> {item}</li>)}
                       </ul>
-                      <button className="service-cta" onClick={() => openTab('booking')}>
+                      <button className="service-cta" onClick={() => bookService(s.title)}>
                         Book this service <ArrowRight size={13} />
                       </button>
                     </div>
@@ -406,30 +446,40 @@ export default function Home() {
           {activeTab === 'packages' && (
             <div className="tab-panel">
               <FadeIn className="center-heading">
-                <p className="eyebrow">SIGNATURE PACKAGES</p>
-                <h2>Choose your level of Luxe.</h2>
-                <p>Simple starting prices. Personalized service. A finish that speaks for itself.</p>
+                <p className="eyebrow">NINE DETAIL SELVES</p>
+                <h2>Exterior, interior, or the full vehicle.</h2>
+                <p>Each family has Essential, Signature, and Elite. Starting prices below. Vehicle size and condition can change the final total.</p>
               </FadeIn>
-              <div className="packages-grid">
-                {PACKAGES.map((p, i) => (
-                  <FadeIn key={p.name} delay={i * 100} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
-                    <span className="package-tag">{p.tag}</span>
-                    {p.featured && <div className="package-glow" />}
-                    <h3>{p.name}</h3>
-                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
-                    <p>{p.desc}</p>
-                    <ul>
-                      {p.features.map(f => <li key={f}><Check size={12} /> {f}</li>)}
-                    </ul>
-                    <button
-                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
-                      onClick={() => { setSelectedPackage(i); openTab('booking'); }}
-                    >
-                      Choose {p.name}
-                    </button>
-                  </FadeIn>
-                ))}
-              </div>
+              {DETAIL_FAMILIES.map((family) => (
+                <div key={family} className="package-family">
+                  <div className="package-family-head">
+                    <p className="eyebrow">{DETAIL_FAMILY_COPY[family].kicker}</p>
+                    <h3>{DETAIL_FAMILY_COPY[family].title}</h3>
+                    <p>{DETAIL_FAMILY_COPY[family].blurb}</p>
+                  </div>
+                  <div className="packages-grid">
+                    {packagesForFamily(family).map((p) => (
+                      <FadeIn key={p.id} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                        <span className="package-tag">{p.tag}</span>
+                        {p.featured && <div className="package-glow" />}
+                        <h3>{p.name}</h3>
+                        <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                        <p className="package-minutes">About {p.minutes} minutes</p>
+                        <p>{p.desc}</p>
+                        <ul>
+                          {p.features.slice(0, 8).map(f => <li key={f}><Check size={12} /> {f}</li>)}
+                        </ul>
+                        <button
+                          className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                          onClick={() => { setSelectedServiceId(p.id); openTab('booking'); }}
+                        >
+                          Choose {p.name}
+                        </button>
+                      </FadeIn>
+                    ))}
+                  </div>
+                </div>
+              ))}
               <FadeIn className="pricing-note">
                 <strong>Vehicle-size pricing:</strong> Sedan/Coupe +$0 · Small SUV +$25 · Large SUV/Truck +$50 · Three-Row/Large Truck +$75. Final pricing may vary by condition.
               </FadeIn>
@@ -440,8 +490,8 @@ export default function Home() {
           {activeTab === 'protection' && (
             <div className="tab-panel">
               <div className="protection-section">
-                <FadeIn className="protection-left" direction="left">
-                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                <FadeIn className="protection-left">
+                  <img src={serviceByTitle('Ceramic').image} alt="Ceramic coating" />
                   <div className="protection-img-accent" />
                 </FadeIn>
                 <FadeIn className="protection-right" delay={150}>
@@ -449,14 +499,19 @@ export default function Home() {
                   <h2>More than shine.<br /><em>Built to protect.</em></h2>
                   <p>Our ceramic coating service combines meticulous preparation with long-lasting hydrophobic protection. The result is deeper gloss, easier maintenance, and a finish built for the road.</p>
                   <div className="protection-tiers">
-                    {[['1 YEAR', 650], ['3 YEAR', 950], ['5 YEAR', 1250]].map(([label, price]) => (
-                      <div key={String(label)} className="protection-tier">
-                        <span>{label}</span>
-                        <strong>{money(Number(price))}<sup>+</sup></strong>
+                    {COATING_TIERS.map((tier) => (
+                      <div key={tier.label} className="protection-tier">
+                        <span>{tier.label}</span>
+                        <strong>{money(tier.price)}<sup>+</sup></strong>
                       </div>
                     ))}
                   </div>
-                  <button className="btn-dark" onClick={() => openTab('booking')}>Request Coating Quote</button>
+                  <button
+                    className="btn-dark"
+                    onClick={() => { setSelectedServiceId('ceramic-coating'); setCoatingYears(1); openTab('booking'); }}
+                  >
+                    Request Coating Quote
+                  </button>
                 </FadeIn>
               </div>
 
@@ -495,23 +550,23 @@ export default function Home() {
               </FadeIn>
               <div className="gallery-grid">
                 <div className="gallery-cell gallery-main">
-                  <img src={SERVICES[2].image} alt="Luxe signature detail" />
+                  <img src={serviceByTitle('Luxe Signature').image} alt="Luxe signature detail" />
                   <div className="gallery-caption">Signature Detail</div>
                 </div>
                 <div className="gallery-cell">
-                  <img src={SERVICES[1].image} alt="Interior detail" />
+                  <img src={serviceByTitle('Interior Signature').image} alt="Interior detail" />
                   <div className="gallery-caption">Interior Care</div>
                 </div>
                 <div className="gallery-cell">
-                  <img src={SERVICES[3].image} alt="Paint correction" />
+                  <img src={serviceByTitle('Paint Correction').image} alt="Paint correction" />
                   <div className="gallery-caption">Paint Correction</div>
                 </div>
                 <div className="gallery-cell gallery-wide">
-                  <img src={SERVICES[4].image} alt="Ceramic coating" />
+                  <img src={serviceByTitle('Ceramic').image} alt="Ceramic coating" />
                   <div className="gallery-caption">Ceramic Coating</div>
                 </div>
                 <div className="gallery-cell">
-                  <img src={SERVICES[0].image} alt="Exterior detail" />
+                  <img src={serviceByTitle('Exterior Signature').image} alt="Exterior detail" />
                   <div className="gallery-caption">Exterior Detail</div>
                 </div>
               </div>
@@ -606,20 +661,43 @@ export default function Home() {
                   <form className="booking-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                       <label>Package</label>
-                      <div className="pkg-choices">
-                        {PACKAGES.map((p, i) => (
-                          <button
-                            type="button"
-                            key={p.name}
-                            className={`pkg-choice ${selectedPackage === i ? 'pkg-active' : ''}`}
-                            onClick={() => setSelectedPackage(i)}
-                          >
-                            <span>{p.name}</span>
-                            <strong>{money(p.price)}+</strong>
-                          </button>
-                        ))}
-                      </div>
+                      {serviceSelectGroups().map((group) => (
+                        <div key={group.label} className="pkg-group">
+                          <span className="pkg-group-label">{group.label}</span>
+                          <div className="pkg-choices">
+                            {group.items.map((p) => (
+                              <button
+                                type="button"
+                                key={p.id}
+                                className={`pkg-choice ${selectedServiceId === p.id ? 'pkg-active' : ''}`}
+                                onClick={() => setSelectedServiceId(p.id)}
+                              >
+                                <span>{p.name}</span>
+                                <strong>{money(p.price)}+</strong>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                    {selectedServiceId === 'ceramic-coating' && (
+                      <div className="form-group">
+                        <label>Coating Term</label>
+                        <div className="pkg-choices">
+                          {COATING_TIERS.map((tier) => (
+                            <button
+                              type="button"
+                              key={tier.years}
+                              className={`pkg-choice ${coatingYears === tier.years ? 'pkg-active' : ''}`}
+                              onClick={() => setCoatingYears(tier.years)}
+                            >
+                              <span>{tier.label}</span>
+                              <strong>{money(tier.price)}+</strong>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="form-row">
                       <div className="form-group">
                         <label>Vehicle Size</label>

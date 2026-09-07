@@ -77,7 +77,10 @@ export default function Portal() {
 
   // Booking form state
   const [showBook, setShowBook] = useState(false);
-  const [bookPkg, setBookPkg] = useState(1);
+  const [bookPkg, setBookPkg] = useState(() => {
+    const idx = PACKAGES.findIndex((p) => p.id === 'full-signature');
+    return idx >= 0 ? idx : 0;
+  });
   const [bookVehicle, setBookVehicle] = useState(0);
   const [bookAddOns, setBookAddOns] = useState<number[]>([]);
   const [bookNotes, setBookNotes] = useState('');
