@@ -208,12 +208,9 @@ export default function Home() {
           />
           <div className="hero-gradient" />
           <div className="hero-noise" />
-          <img
-            className="hero-lockup"
-            src="/ns-auto-luxe-full-logo.png"
-            alt=""
-            style={{ opacity: Math.max(0.1, 0.34 - heroShift / 1600) }}
-          />
+        </div>
+        <div className="hero-lockup" aria-hidden="true">
+          <img src="/ns-auto-luxe-full-logo.png" alt="" />
         </div>
 
         <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>
@@ -226,7 +223,7 @@ export default function Home() {
             A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
           </p>
           <div className="hero-actions">
-            <button className="btn-primary" onClick={() => scrollTo('booking')}>
+            <button className="btn-white" onClick={() => scrollTo('booking')}>
               Book Your Detail <ArrowRight size={16} />
             </button>
             <button className="btn-ghost" onClick={() => scrollTo('services')}>
