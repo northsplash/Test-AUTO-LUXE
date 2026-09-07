@@ -91,7 +91,7 @@ function LeadMap({ leads, territories, onMapPoint }: { leads: Lead[]; territorie
   useEffect(() => {
     if (!ready || !ref.current || mapRef.current) return;
     const L = (window as any).L;
-    const map = L.map(ref.current).setView([35.7796, -78.6382], 11);
+    const map = L.map(ref.current).setView([35.8722, -78.5378], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     map.on('click', (e: any) => onMapPoint(e.latlng.lat, e.latlng.lng));
@@ -137,7 +137,7 @@ export default function EnterpriseSuite({ section, employees, setEmployees, appo
   const [payments, setPayments] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
 
-  const [leadForm, setLeadForm] = useState({ assigned_employee_id: '', territory_id: '', customer_name: '', address: '', city: 'Raleigh', state: 'NC', postal_code: '', phone: '', email: '', latitude: '', longitude: '', status: 'new', service_interest: '', vehicle_info: '', estimated_value: '', follow_up_at: '', notes: '' });
+  const [leadForm, setLeadForm] = useState({ assigned_employee_id: '', territory_id: '', customer_name: '', address: '', city: 'Raleigh', state: 'NC', postal_code: '27616', phone: '', email: '', latitude: '', longitude: '', status: 'new', service_interest: '', vehicle_info: '', estimated_value: '', follow_up_at: '', notes: '' });
   const [territoryForm, setTerritoryForm] = useState({ name: '', assigned_employee_id: '', center_lat: '', center_lng: '', radius_meters: 1200, notes: '', polygon_points: [] as [number,number][] });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assigned_employee_id: '', priority: 'normal', due_at: '' });
   const [equipmentForm, setEquipmentForm] = useState({ name: '', category: 'Equipment', serial_number: '', purchase_date: '', purchase_cost: '', assigned_employee_id: '', condition: 'good', status: 'available', next_maintenance_at: '', notes: '' });

@@ -103,7 +103,7 @@ export const VEHICLE_SIZES = [
 
 export const FAQS = [
   ['How long does a detail take?', 'Exterior and interior selves start around 90 minutes. A full Luxe Signature is about 3.5 hours, Luxe Elite about 5 hours, and paint correction or ceramic coating can take a full day.'],
-  ['Do you offer mobile detailing?', 'Yes. Concierge/mobile service can be requested when available. A mobile service fee may apply depending on location and service requirements.'],
+  ['Do you offer mobile detailing?', 'Yes. We come to you in Raleigh, NC 27616 and nearby Wake County when mobile service is available. A mobile service fee may apply depending on location and service requirements.'],
   ['How much does detailing cost?', 'Exterior starts at $125, interior at $150, and a full vehicle at $175. Paint correction is $350. Ceramic coating is $650 / $950 / $1,250 for 1-, 3-, and 5-year tiers. Vehicle size, condition, and add-ons can change the final total.'],
   ['Do you work on luxury and exotic vehicles?', 'Yes. Our Luxe Collection is designed for premium, luxury, and specialty vehicles. Specialty vehicles receive a custom quote.'],
   ['Can you remove scratches?', 'Paint correction can improve many light-to-moderate paint imperfections. Deep scratches that have reached the underlying layers may require a different repair.'],

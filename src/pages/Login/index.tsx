@@ -96,7 +96,7 @@ export default function Login() {
               </div>
               <div className="auth-field">
                 <label>Phone Number</label>
-                <input type="tel" placeholder="330-000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
+                <input type="tel" placeholder="919-000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
               </div>
             </>
           )}

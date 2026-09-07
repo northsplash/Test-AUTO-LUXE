@@ -85,7 +85,7 @@ export default function Home() {
   const [formSent, setFormSent] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSending, setBookingSending] = useState(false);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', notes: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', address: '', notes: '' });
   const [heroVisible, setHeroVisible] = useState(false);
   const [counterVal, setCounterVal] = useState(0);
   const tabRef = useRef<HTMLDivElement>(null);
@@ -168,8 +168,9 @@ export default function Home() {
             : selectedBookable.name,
           add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
           vehicle_info: formData.vehicle.trim(),
+          service_address: formData.address.trim() || 'Raleigh, NC 27616',
           price: estimated,
-          notes: formData.notes.trim(),
+          notes: [formData.address.trim() && `Service location: ${formData.address.trim()}`, formData.notes.trim()].filter(Boolean).join('\n'),
           source_channel: 'northsplash.com',
         },
       });
@@ -232,7 +233,7 @@ export default function Home() {
             <em className="hero-word hero-word-em"><span>Your Drive.</span></em>
           </h1>
           <p className="hero-copy">
-            A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
+            Mobile detailing from Raleigh, NC 27616. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.
           </p>
           <div className="hero-actions">
             <button className="btn-white" onClick={() => scrollTo('booking')}>
@@ -804,7 +805,7 @@ export default function Home() {
                       </div>
                       <div className="form-group">
                         <label>Phone Number</label>
-                        <input required type="tel" placeholder="330-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                        <input required type="tel" placeholder="919-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
                       </div>
                     </div>
                     <div className="form-row">
@@ -816,6 +817,10 @@ export default function Home() {
                         <label>Year / Make / Model</label>
                         <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
                       </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Service location</label>
+                      <input placeholder="Raleigh, NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
                     </div>
                     <div className="form-group">
                       <label>Additional Notes</label>
@@ -912,10 +917,11 @@ export default function Home() {
         <FadeIn className="contact-left">
           <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
           <h2>Your vehicle.<br /><em>Our standard.</em></h2>
-          <p>Ready to elevate the finish? Let's build the right service for your vehicle.</p>
+          <p>Ready to elevate the finish? We service Raleigh, NC 27616 and nearby Wake County.</p>
         </FadeIn>
         <FadeIn delay={150} className="contact-right">
           <a href="tel:3309903956" className="contact-link">330-990-3956</a>
+          <span className="contact-link">Raleigh, NC 27616</span>
           <a href="mailto:support@northsplash.com" className="contact-link">support@northsplash.com</a>
           <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
         </FadeIn>

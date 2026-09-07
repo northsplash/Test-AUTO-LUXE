@@ -1,6 +1,6 @@
 # North Splash Auto Luxe — public detailing website
 
-This repository is the **customer-facing detailing site**: services, packages, ceramic protection, membership, and booking.
+This repository is the **customer-facing detailing site**: services, packages, ceramic protection, membership, and booking. The home market is Raleigh, NC 27616 (Wake County). Public phone stays 330-990-3956.
 
 Portal login on this site sends people to the **operating system**, which is a separate product.
 

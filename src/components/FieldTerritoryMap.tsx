@@ -125,7 +125,7 @@ export default function FieldTerritoryMap({
       scrollWheelZoom: true,
       touchZoom: true,
       dragging: true,
-    }).setView([35.7796, -78.6382], 13);
+    }).setView([35.8722, -78.5378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20,
       attribution: '&copy; OpenStreetMap contributors',

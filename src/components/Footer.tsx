@@ -1,4 +1,4 @@
-import { Phone, Mail, Instagram, Facebook } from 'lucide-react';
+import { Phone, Mail, Instagram, Facebook, MapPin } from 'lucide-react';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 
@@ -16,7 +16,7 @@ export function Footer({ onScrollTo }: Props) {
           <div className="footer-brand">
             <img className="footer-logo-image" src="/ns-auto-luxe-full-logo.png" alt="North Splash Auto Luxe Premium Detailing"/>
           </div>
-          <p>Premium automotive care. Built around the finish that lasts.</p>
+          <p>Premium automotive care from Raleigh, NC 27616. Built around the finish that lasts.</p>
           <div className="footer-social">
             <a href="https://instagram.com" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
               <Instagram size={16} />
@@ -48,6 +48,9 @@ export function Footer({ onScrollTo }: Props) {
 
         <div className="footer-col">
           <h4>Contact</h4>
+          <span className="footer-contact">
+            <MapPin size={13} /> Raleigh, NC 27616
+          </span>
           <a href="tel:3309903956" className="footer-contact">
             <Phone size={13} /> 330-990-3956
           </a>

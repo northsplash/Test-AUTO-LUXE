@@ -1195,7 +1195,7 @@ const handleDeleteAvailability = async (id: string) => {
                 </div>
                 <div className="form-group">
                   <label>Phone</label>
-                  <input type="tel" value={empForm.phone} onChange={e => setEmpForm(p => ({...p, phone: e.target.value}))} placeholder="330-000-0000" />
+                  <input type="tel" value={empForm.phone} onChange={e => setEmpForm(p => ({...p, phone: e.target.value}))} placeholder="919-000-0000" />
                 </div>
               </div>
               <div className="form-row">
