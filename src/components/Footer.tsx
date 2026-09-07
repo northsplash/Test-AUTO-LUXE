@@ -31,8 +31,9 @@ export function Footer({ onScrollTo }: Props) {
           <h4>Services</h4>
           <button onClick={() => scroll('services')}>Exterior Detail</button>
           <button onClick={() => scroll('services')}>Interior Detail</button>
+          <button onClick={() => scroll('packages')}>Full Vehicle Detail</button>
           <button onClick={() => scroll('services')}>Paint Correction</button>
-          <button onClick={() => scroll('services')}>Ceramic Coating</button>
+          <button onClick={() => scroll('protection')}>Ceramic Coating</button>
         </div>
 
         <div className="footer-col">
