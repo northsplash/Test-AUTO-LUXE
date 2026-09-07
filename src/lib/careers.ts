@@ -201,6 +201,28 @@ function guestClient() {
   });
 }
 
+function applicationBody(app: JobApplication) {
+  return {
+    ...app,
+    full_name: app.full_name.trim(),
+    email: app.email.trim(),
+    phone: app.phone,
+    city: app.city.trim(),
+    years_experience: Number(app.years_experience) || 0,
+    experience_detail: app.experience_detail.trim(),
+    why: app.why.trim(),
+    start_when: app.start_when,
+    has_license: app.has_license,
+  };
+}
+
+function resultFrom(payload: Record<string, unknown> | null | undefined) {
+  if (!payload) return null;
+  if (typeof payload.error === 'string' && payload.error) throw new Error(payload.error);
+  if (payload.id) return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
+  return null;
+}
+
 async function readJson(res: Response) {
   const text = await res.text();
   try { return JSON.parse(text) as Record<string, unknown>; } catch { return { raw: text }; }
@@ -210,18 +232,7 @@ async function postSameOrigin(app: JobApplication) {
   const res = await fetch('/api/job-application', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      ...app,
-      full_name: app.full_name.trim(),
-      email: app.email.trim(),
-      phone: app.phone,
-      city: app.city.trim(),
-      years_experience: Number(app.years_experience) || 0,
-      experience_detail: app.experience_detail.trim(),
-      why: app.why.trim(),
-      start_when: app.start_when,
-      has_license: app.has_license,
-    }),
+    body: JSON.stringify(applicationBody(app)),
   });
   const type = res.headers.get('content-type') || '';
   if (type.includes('text/html')) throw new Error('APPLY_API_MISSING');
@@ -230,8 +241,45 @@ async function postSameOrigin(app: JobApplication) {
   if (!res.ok || typeof payload.error === 'string') {
     throw new Error(String(payload.error || `HTTP ${res.status}`));
   }
-  if (payload.id) return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
+  const saved = resultFrom(payload);
+  if (saved) return saved;
   throw new Error('Unable to send your application.');
+}
+
+async function submitThroughSupabase(app: JobApplication) {
+  const guest = guestClient();
+  if (!guest) throw new Error('Unable to send your application.');
+  const body = applicationBody(app);
+
+  const invoked = await guest.functions.invoke('submit-job-application', { body });
+  const fnPayload = invoked.data && typeof invoked.data === 'object' ? invoked.data as Record<string, unknown> : {};
+  const fromFn = resultFrom(fnPayload);
+  if (fromFn) return fromFn;
+
+  const rpc = await guest.rpc('submit_website_job_application', { payload: body });
+  const rpcPayload = rpc.data && typeof rpc.data === 'object' ? rpc.data as Record<string, unknown> : null;
+  if (!rpc.error) {
+    const fromRpc = resultFrom(rpcPayload);
+    if (fromRpc) return fromRpc;
+  }
+
+  const insert = await guest.from('recruiting_candidates').insert(candidateRow(app));
+  if (!insert.error) return { id: 'ok', duplicate: false };
+  const slim = { ...candidateRow(app) } as Record<string, unknown>;
+  delete slim.city;
+  delete slim.years_experience;
+  delete slim.authorized_to_work;
+  const retry = await guest.from('recruiting_candidates').insert(slim);
+  if (!retry.error) return { id: 'ok', duplicate: false };
+
+  throw new Error(String(
+    (typeof fnPayload.error === 'string' && fnPayload.error)
+    || invoked.error?.message
+    || rpc.error?.message
+    || insert.error?.message
+    || retry.error.message
+    || 'Unable to send your application.',
+  ));
 }
 
 export async function submitJobApplication(app: JobApplication) {
@@ -240,39 +288,15 @@ export async function submitJobApplication(app: JobApplication) {
   try {
     return await postSameOrigin(app);
   } catch (sameOriginError) {
-    const skipApi = sameOriginError instanceof Error && /APPLY_API_MISSING|404|Failed to fetch/i.test(sameOriginError.message);
-    const guest = guestClient();
-    if (!guest) {
-      throw sameOriginError instanceof Error ? sameOriginError : new Error('Unable to send your application.');
+    try {
+      return await submitThroughSupabase(app);
+    } catch (fallbackError) {
+      const apiMissing = sameOriginError instanceof Error && /APPLY_API_MISSING|404|Failed to fetch/i.test(sameOriginError.message);
+      throw fallbackError instanceof Error
+        ? fallbackError
+        : (!apiMissing && sameOriginError instanceof Error
+          ? sameOriginError
+          : new Error('Unable to send your application.'));
     }
-
-    const body = {
-      ...app,
-      full_name: app.full_name.trim(),
-      email: app.email.trim(),
-      phone: app.phone,
-      city: app.city.trim(),
-      years_experience: Number(app.years_experience) || 0,
-      experience_detail: app.experience_detail.trim(),
-      why: app.why.trim(),
-    };
-    const invoked = await guest.functions.invoke('submit-job-application', { body });
-    const payload = invoked.data && typeof invoked.data === 'object' ? invoked.data as Record<string, unknown> : {};
-    if (typeof payload.error === 'string' && payload.error) throw new Error(payload.error);
-    if (payload.id) return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
-
-    const insert = await guest.from('recruiting_candidates').insert(candidateRow(app));
-    if (!insert.error) return { id: 'ok', duplicate: false };
-    const slim = { ...candidateRow(app) } as Record<string, unknown>;
-    delete slim.city;
-    delete slim.years_experience;
-    delete slim.authorized_to_work;
-    const retry = await guest.from('recruiting_candidates').insert(slim);
-    if (!retry.error) return { id: 'ok', duplicate: false };
-
-    const detail = invoked.error?.message || insert.error?.message || retry.error.message
-      || (!skipApi && sameOriginError instanceof Error ? sameOriginError.message : '')
-      || 'Unable to send your application.';
-    throw new Error(String(detail));
   }
 }

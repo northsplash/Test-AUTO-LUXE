@@ -13,16 +13,63 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
 
+function env(name: string) {
+  return String(process.env[name] || '').trim();
+}
+
+function supabaseUrl() {
+  return env('VITE_SUPABASE_URL') || env('SUPABASE_URL');
+}
+
+function anonKey() {
+  return env('VITE_SUPABASE_ANON_KEY') || env('SUPABASE_ANON_KEY');
+}
+
+function serviceKey() {
+  return env('SUPABASE_SERVICE_ROLE_KEY');
+}
+
+function messageOf(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return '';
+  const row = payload as Record<string, unknown>;
+  if (typeof row.error === 'string') return row.error;
+  if (typeof row.message === 'string') return row.message;
+  if (typeof row.msg === 'string') return row.msg;
+  if (Array.isArray(payload) && payload[0] && typeof payload[0] === 'object') {
+    const first = payload[0] as Record<string, unknown>;
+    return String(first.message || first.hint || first.error || '');
+  }
+  return '';
+}
+
+async function postJson(url: string, headers: Record<string, string>, body: unknown) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const payload = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, payload };
+}
+
+function savedId(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return '';
+  const row = Array.isArray(payload) ? payload[0] : payload;
+  if (!row || typeof row !== 'object') return '';
+  const id = (row as Record<string, unknown>).id;
+  return id != null ? String(id) : '';
+}
+
 export default async function handler(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const url = String(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-    const service = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-    const anon = String(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
-    const key = service || anon;
-    if (!url || !key) throw new Error('Hiring is not connected on this site yet.');
+    const url = supabaseUrl();
+    const service = serviceKey();
+    const anon = anonKey();
+    const restKey = service || anon;
+    if (!url || !anon) throw new Error('Hiring is not connected on this site yet.');
 
     const body = await req.json();
     if (String(body.company_website || '').trim()) return json({ success: true, id: 'ignored' });
@@ -55,12 +102,41 @@ export default async function handler(req: Request) {
     if (!authorized) throw new Error('Confirm you are authorized to work in the United States.');
     if (why.length < 20) throw new Error('Tell us a little more about why you want this role.');
 
-    const headers = {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
+    const application = {
+      ...body,
+      full_name: fullName,
+      email,
+      phone,
+      position,
+      city,
+      availability,
+      why,
+      experience_detail: experienceDetail,
+      start_when: startWhen,
+      years_experience: Number.isFinite(years) ? years : 0,
+      authorized_to_work: authorized,
+      transportation,
+      weekends,
+      has_license: hasLicense,
     };
+
+    const fn = await postJson(`${url}/functions/v1/submit-job-application`, {
+      apikey: anon,
+      Authorization: `Bearer ${anon}`,
+      'Content-Type': 'application/json',
+    }, application);
+    if (fn.ok && savedId(fn.payload)) {
+      return json({ success: true, id: savedId(fn.payload), duplicate: Boolean((fn.payload as { duplicate?: boolean }).duplicate) });
+    }
+
+    const rpc = await postJson(`${url}/rest/v1/rpc/submit_website_job_application`, {
+      apikey: restKey,
+      Authorization: `Bearer ${restKey}`,
+      'Content-Type': 'application/json',
+    }, { payload: application });
+    if (rpc.ok && savedId(rpc.payload)) {
+      return json({ success: true, id: savedId(rpc.payload), duplicate: Boolean((rpc.payload as { duplicate?: boolean }).duplicate) });
+    }
 
     const notes = [
       'Website application',
@@ -90,38 +166,36 @@ export default async function handler(req: Request) {
       notes,
     };
 
-    const insert = await fetch(`${url}/rest/v1/recruiting_candidates`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(row),
-    });
-    let payload = await insert.json().catch(() => ({}));
-    if (!insert.ok) {
-      const slim = {
-        full_name: fullName,
-        email,
-        phone,
-        position,
-        stage: 'applied',
-        source: 'Website',
-        background_status: 'not_started',
-        desired_schedule: [availability, startWhen ? `start ${startWhen}` : ''].filter(Boolean).join(' · ') || null,
-        notes,
-      };
-      const retry = await fetch(`${url}/rest/v1/recruiting_candidates`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(slim),
-      });
-      payload = await retry.json().catch(() => ({}));
-      if (!retry.ok) {
-        const message = Array.isArray(payload) ? payload[0]?.message : payload.message || payload.error || payload.hint;
-        throw new Error(String(message || 'The hiring board could not take this application.'));
-      }
+    const headers = {
+      apikey: restKey,
+      Authorization: `Bearer ${restKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    };
+    const insert = await postJson(`${url}/rest/v1/recruiting_candidates`, headers, row);
+    if (insert.ok && (savedId(insert.payload) || insert.status === 201)) {
+      return json({ success: true, id: savedId(insert.payload) || 'ok', duplicate: false });
     }
 
-    const saved = Array.isArray(payload) ? payload[0] : payload;
-    return json({ success: true, id: saved?.id || 'ok', duplicate: false });
+    const slim = {
+      full_name: fullName,
+      email,
+      phone,
+      position,
+      stage: 'applied',
+      source: 'Website',
+      background_status: 'not_started',
+      desired_schedule: [availability, startWhen ? `start ${startWhen}` : ''].filter(Boolean).join(' · ') || null,
+      notes,
+    };
+    const retry = await postJson(`${url}/rest/v1/recruiting_candidates`, headers, slim);
+    if (retry.ok) {
+      return json({ success: true, id: savedId(retry.payload) || 'ok', duplicate: false });
+    }
+
+    const message = messageOf(rpc.payload) || messageOf(fn.payload) || messageOf(retry.payload) || messageOf(insert.payload)
+      || 'The hiring board could not take this application.';
+    throw new Error(message);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 400);
   }

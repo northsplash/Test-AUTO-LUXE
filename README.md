@@ -26,3 +26,5 @@ npm run dev
 ```
 
 The site serves at `http://127.0.0.1:43128`. Open `/apply` from the footer **Apply for a job** bar to walk the four-step hiring form.
+
+Applications POST to `/api/job-application`, then the `submit-job-application` Edge Function, then the `submit_website_job_application` RPC. If live apply still says to call the phone, run `supabase/migrations/20260907180000_website_apply_rpc.sql` in the Supabase SQL editor for project `hoyrumpztfyhzzljpstl` and deploy `submit-job-application` with `--no-verify-jwt`.
