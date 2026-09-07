@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export const OPEN_ROLES = [
   {
@@ -87,34 +87,83 @@ function candidateRow(app: JobApplication) {
   };
 }
 
+function guestClient() {
+  const url = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
+  const key = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+async function readJson(res: Response) {
+  const text = await res.text();
+  try { return JSON.parse(text) as Record<string, unknown>; } catch { return { raw: text }; }
+}
+
+async function postSameOrigin(app: JobApplication) {
+  const res = await fetch('/api/job-application', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      ...app,
+      full_name: app.full_name.trim(),
+      email: app.email.trim(),
+      phone: app.phone,
+      city: app.city.trim(),
+      years_experience: Number(app.years_experience) || 0,
+      why: app.why.trim(),
+    }),
+  });
+  const type = res.headers.get('content-type') || '';
+  if (type.includes('text/html')) throw new Error('APPLY_API_MISSING');
+  const payload = await readJson(res);
+  if (typeof payload.raw === 'string' && payload.raw.trim().startsWith('<')) throw new Error('APPLY_API_MISSING');
+  if (!res.ok || typeof payload.error === 'string') {
+    throw new Error(String(payload.error || `HTTP ${res.status}`));
+  }
+  if (payload.id) return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
+  throw new Error('Unable to send your application.');
+}
+
 export async function submitJobApplication(app: JobApplication) {
   if (app.company_website.trim()) return { id: 'ok', duplicate: false };
-  const body = {
-    ...app,
-    full_name: app.full_name.trim(),
-    email: app.email.trim(),
-    phone: app.phone,
-    city: app.city.trim(),
-    years_experience: Number(app.years_experience) || 0,
-    why: app.why.trim(),
-  };
-  const invoked = await supabase.functions.invoke('submit-job-application', { body });
-  const payload = invoked.data && typeof invoked.data === 'object' ? invoked.data as Record<string, unknown> : {};
-  if (typeof payload.error === 'string' && payload.error) {
-    throw new Error(payload.error);
+
+  try {
+    return await postSameOrigin(app);
+  } catch (sameOriginError) {
+    const skipApi = sameOriginError instanceof Error && /APPLY_API_MISSING|404|Failed to fetch/i.test(sameOriginError.message);
+    const guest = guestClient();
+    if (!guest) {
+      throw sameOriginError instanceof Error ? sameOriginError : new Error('Unable to send your application.');
+    }
+
+    const body = {
+      ...app,
+      full_name: app.full_name.trim(),
+      email: app.email.trim(),
+      phone: app.phone,
+      city: app.city.trim(),
+      years_experience: Number(app.years_experience) || 0,
+      why: app.why.trim(),
+    };
+    const invoked = await guest.functions.invoke('submit-job-application', { body });
+    const payload = invoked.data && typeof invoked.data === 'object' ? invoked.data as Record<string, unknown> : {};
+    if (typeof payload.error === 'string' && payload.error) throw new Error(payload.error);
+    if (payload.id) return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
+
+    const insert = await guest.from('recruiting_candidates').insert(candidateRow(app));
+    if (!insert.error) return { id: 'ok', duplicate: false };
+    const slim = { ...candidateRow(app) } as Record<string, unknown>;
+    delete slim.city;
+    delete slim.years_experience;
+    delete slim.authorized_to_work;
+    const retry = await guest.from('recruiting_candidates').insert(slim);
+    if (!retry.error) return { id: 'ok', duplicate: false };
+
+    const detail = invoked.error?.message || insert.error?.message || retry.error.message
+      || (!skipApi && sameOriginError instanceof Error ? sameOriginError.message : '')
+      || 'Unable to send your application.';
+    throw new Error(String(detail));
   }
-  if (payload.id) {
-    return { id: String(payload.id), duplicate: Boolean(payload.duplicate) };
-  }
-  const insert = await supabase.from('recruiting_candidates').insert(candidateRow(app));
-  if (!insert.error) return { id: 'ok', duplicate: false };
-  const slim = { ...candidateRow(app) } as Record<string, unknown>;
-  delete slim.city;
-  delete slim.years_experience;
-  delete slim.authorized_to_work;
-  const retry = await supabase.from('recruiting_candidates').insert(slim);
-  if (retry.error) {
-    throw new Error(String(invoked.error?.message || insert.error?.message || retry.error.message || 'Unable to send your application.'));
-  }
-  return { id: 'ok', duplicate: false };
 }

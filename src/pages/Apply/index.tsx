@@ -47,8 +47,8 @@ export default function Apply() {
 
   const stepError = useMemo(() => {
     if (step === 1 && !form.position) return 'Choose a role to continue.';
-    if (step >= 2 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || form.city.trim().length < 2)) {
-      return 'Name, a valid email, a 10-digit phone, and your city are required.';
+    if (step >= 2 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || new Set(phoneDigits).size < 2 || form.city.trim().length < 2)) {
+      return 'Name, a valid email, a real 10-digit phone, and your city are required.';
     }
     if (step >= 3 && (!form.authorized_to_work || form.why.trim().length < 20)) {
       return 'Confirm you can work in the U.S. and tell us why you want the role (at least a couple of sentences).';
@@ -69,7 +69,7 @@ export default function Apply() {
     e.preventDefault();
     if (stepError) {
       setError(stepError);
-      if (step === 4 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || form.city.trim().length < 2)) setStep(2);
+      if (step === 4 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || new Set(phoneDigits).size < 2 || form.city.trim().length < 2)) setStep(2);
       else if (step === 4) setStep(3);
       return;
     }
@@ -215,6 +215,7 @@ export default function Apply() {
                     <div><dt>City</dt><dd>{form.city}, NC</dd></div>
                     <div><dt>Availability</dt><dd>{form.availability}{form.weekends ? ' · weekends' : ''}</dd></div>
                     <div><dt>Experience</dt><dd>{EXPERIENCE_LABEL[form.years_experience] || 'Not listed'}</dd></div>
+                    <div><dt>Work status</dt><dd>{form.authorized_to_work ? 'Authorized to work in the U.S.' : 'Not confirmed'}</dd></div>
                     <div><dt>Transportation</dt><dd>{form.transportation ? 'Reliable transportation' : 'Needs a plan'}</dd></div>
                     <div><dt>Why</dt><dd>{form.why}</dd></div>
                   </dl>

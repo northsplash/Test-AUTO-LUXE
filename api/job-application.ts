@@ -1,0 +1,119 @@
+export const config = { runtime: 'edge' };
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Content-Type': 'application/json',
+};
+
+const POSITIONS = new Set(['detailer', 'd2d_agent', 'manager']);
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: CORS });
+}
+
+export default async function handler(req: Request) {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+  try {
+    const url = String(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+    const service = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    const anon = String(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+    const key = service || anon;
+    if (!url || !key) throw new Error('Hiring is not connected on this site yet.');
+
+    const body = await req.json();
+    if (String(body.company_website || '').trim()) return json({ success: true, id: 'ignored' });
+
+    const fullName = String(body.full_name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const phone = String(body.phone || '').replace(/\D/g, '');
+    const position = String(body.position || '').trim();
+    const city = String(body.city || '').trim();
+    const availability = String(body.availability || '').trim();
+    const why = String(body.why || '').trim();
+    const years = Number(body.years_experience);
+    const authorized = Boolean(body.authorized_to_work);
+    const transportation = Boolean(body.transportation);
+    const weekends = Boolean(body.weekends);
+
+    if (fullName.length < 2) throw new Error('Enter your full name.');
+    if (!email.includes('@')) throw new Error('Enter a valid email.');
+    if (phone.length < 10) throw new Error('Enter a 10-digit phone number.');
+    if (new Set(phone).size === 1) throw new Error('Enter a real phone number.');
+    if (!POSITIONS.has(position)) throw new Error('Choose a role.');
+    if (city.length < 2) throw new Error('Enter the North Carolina city you work from.');
+    if (!authorized) throw new Error('Confirm you are authorized to work in the United States.');
+    if (why.length < 20) throw new Error('Tell us a little more about why you want this role.');
+
+    const headers = {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    };
+
+    const notes = [
+      'Website application',
+      `City: ${city}, NC`,
+      availability ? `Availability: ${availability}` : '',
+      Number.isFinite(years) ? `Experience: ${years} year${years === 1 ? '' : 's'}` : '',
+      `Authorized to work in the U.S.: ${authorized ? 'Yes' : 'No'}`,
+      `Reliable transportation: ${transportation ? 'Yes' : 'No'}`,
+      `Weekends: ${weekends ? 'Yes' : 'No'}`,
+      why ? `Why North Splash:\n${why}` : '',
+    ].filter(Boolean).join('\n');
+
+    const row = {
+      full_name: fullName,
+      email,
+      phone,
+      position,
+      stage: 'applied',
+      source: 'Website',
+      background_status: 'not_started',
+      desired_schedule: availability || null,
+      city,
+      years_experience: Number.isFinite(years) ? years : null,
+      authorized_to_work: authorized,
+      notes,
+    };
+
+    const insert = await fetch(`${url}/rest/v1/recruiting_candidates`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(row),
+    });
+    let payload = await insert.json().catch(() => ({}));
+    if (!insert.ok) {
+      const slim = {
+        full_name: fullName,
+        email,
+        phone,
+        position,
+        stage: 'applied',
+        source: 'Website',
+        background_status: 'not_started',
+        desired_schedule: availability || null,
+        notes,
+      };
+      const retry = await fetch(`${url}/rest/v1/recruiting_candidates`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(slim),
+      });
+      payload = await retry.json().catch(() => ({}));
+      if (!retry.ok) {
+        const message = Array.isArray(payload) ? payload[0]?.message : payload.message || payload.error || payload.hint;
+        throw new Error(String(message || 'The hiring board could not take this application.'));
+      }
+    }
+
+    const saved = Array.isArray(payload) ? payload[0] : payload;
+    return json({ success: true, id: saved?.id || 'ok', duplicate: false });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error) }, 400);
+  }
+}
