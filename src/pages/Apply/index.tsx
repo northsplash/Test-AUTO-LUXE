@@ -145,7 +145,7 @@ export default function Apply() {
               {step === 1 && (
                 <div className="apply-roles">
                   <h2>Choose the seat you actually want.</h2>
-                  <p className="apply-fit-lead">Pay ranges are typical weeks, not a guarantee. Training and a full book change the number.</p>
+                  <p className="apply-fit-lead">Typical weekly pay, not a guarantee. Training and a full book change the number.</p>
                   {OPEN_ROLES.map((item) => (
                     <button
                       type="button"

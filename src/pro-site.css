@@ -310,6 +310,9 @@ section {
   .booking-steps {
     grid-template-columns: 1fr 1fr !important;
   }
+  .apply-steps {
+    grid-template-columns: 1fr 1fr !important;
+  }
   .pkg-choices {
     grid-template-columns: 1fr 1fr !important;
   }

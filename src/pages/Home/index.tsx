@@ -183,13 +183,24 @@ export default function Home() {
     if (!id) return;
     if (TABS.some((tab) => tab.id === id)) {
       setActiveTab(id as TabId);
-      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
       return;
     }
     if (id === 'reviews' || id === 'contact' || id === 'home') {
-      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
+      const jump = () => document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+      jump();
+      const timer = window.setTimeout(jump, 250);
+      return () => window.clearTimeout(timer);
     }
   }, [location.hash]);
+
+  useEffect(() => {
+    const id = location.hash.replace('#', '');
+    if (!TABS.some((tab) => tab.id === id) || activeTab !== id) return;
+    const jump = () => tabRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    jump();
+    const timer = window.setTimeout(jump, 250);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, location.hash]);
 
   useEffect(() => {
     const dates = preferredDateOptions();
