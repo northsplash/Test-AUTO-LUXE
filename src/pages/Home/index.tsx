@@ -152,6 +152,7 @@ export default function Home() {
           <img src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
           <div className="hero-gradient" />
           <div className="hero-noise" />
+          <img className="hero-lockup" src="/ns-auto-luxe-full-logo.png" alt="" />
         </div>
 
         <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>

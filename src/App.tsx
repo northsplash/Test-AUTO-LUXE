@@ -5,7 +5,12 @@ import Home from '@/pages/Home';
 const Checkout = lazy(() => import('@/pages/Checkout'));
 
 function Loader() {
-  return <div className="route-loader"><div className="route-loader-mark">NS</div><div><strong>North Splash</strong><span>Loading…</span></div></div>;
+  return (
+    <div className="route-loader">
+      <img className="route-loader-lockup" src="/ns-auto-luxe-full-logo.png" alt="North Splash Auto Luxe" />
+      <div><strong>North Splash Auto Luxe</strong><span>Opening the detailing site…</span></div>
+    </div>
+  );
 }
 
 export default function App() {

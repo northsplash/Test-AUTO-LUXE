@@ -14,11 +14,7 @@ export function Footer({ onScrollTo }: Props) {
       <div className="footer-grid">
         <div className="footer-brand-col">
           <div className="footer-brand">
-            <div className="brand-mark brand-mark-sm">NS</div>
-            <div>
-              <strong>NORTH SPLASH</strong>
-              <small>AUTO LUXE</small>
-            </div>
+            <img className="footer-logo-image" src="/ns-auto-luxe-full-logo.png" alt="North Splash Auto Luxe Premium Detailing"/>
           </div>
           <p>Premium automotive care. Built around the finish that lasts.</p>
           <div className="footer-social">
