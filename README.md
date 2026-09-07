@@ -6,7 +6,7 @@ Portal login on this site sends people to the **operating system**, which is a s
 
 Service prices and packages on this site follow the same catalog as the OS: nine detail packages (Exterior / Interior / Full × Essential / Signature / Elite), paint correction, ceramic coating tiers, add-ons, and memberships.
 
-The footer **Apply for a job** button opens `/apply`: a four-step application (role, contact, fit, review) for Mobile Detailer, Door-to-door Sales, and Operations / Concierge. Submissions land on the OS hiring board (`People → Hiring`) as stage `applied`, source `Website`.
+The footer **Apply for a job** button opens `/apply`: a four-step application (role, contact, experience, review) for Mobile Detailer, Door-to-door Sales, and Operations / Concierge. Each role has duties, typical pay, and questions written for that seat. Submissions land on the OS hiring board (`People → Hiring`) as stage `applied`, source `Website`, with the written answers in notes.
 
 ## Two sites
 

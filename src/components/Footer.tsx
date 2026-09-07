@@ -63,8 +63,8 @@ export function Footer({ onScrollTo }: Props) {
       {pathname !== '/apply' && (
         <div className="footer-apply">
           <div>
-            <strong>Want to work here?</strong>
-            <p>Detailers and door-to-door reps all over North Carolina. Four steps. No account required.</p>
+            <strong>Hiring in North Carolina</strong>
+            <p>Mobile detailers, door-to-door sales, and concierge ops. Real questions, about ten minutes, no account.</p>
           </div>
           <Link to="/apply" className="footer-apply-btn">Apply for a job</Link>
         </div>

@@ -729,8 +729,12 @@ body.site-menu-open { overflow: hidden; }
 .apply-roles > button { display: grid; grid-template-columns: auto 1fr; gap: 14px; text-align: left; padding: 18px; border: 1px solid #ddd; background: var(--paper, #f7f3eb); }
 .apply-roles > button.active { border-color: var(--ink); background: #17110d; color: #fff; }
 .apply-roles strong, .apply-roles small, .apply-roles em { display: block; }
-.apply-roles small { opacity: .7; margin: 4px 0 8px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-.apply-roles em { font-style: normal; font-size: 14px; line-height: 1.5; opacity: .9; }
+.apply-roles small { opacity: .7; margin: 4px 0 8px; font-size: 12px; letter-spacing: .02em; }
+.apply-roles em { font-style: normal; font-size: 14px; line-height: 1.55; opacity: .9; }
+.apply-roles ul { list-style: none; padding: 10px 0 0; margin: 10px 0 0; display: grid; gap: 6px; border-top: 1px solid rgba(17,17,17,.08); }
+.apply-roles > button.active ul { border-top-color: rgba(255,255,255,.16); }
+.apply-roles ul li { font-size: 13px; line-height: 1.45; opacity: .82; padding-left: 12px; position: relative; }
+.apply-roles ul li::before { content: '–'; position: absolute; left: 0; opacity: .55; }
 .apply-fields, .apply-review { display: grid; gap: 16px; }
 .apply-fields .form-group span { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
 .apply-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; }
@@ -741,7 +745,7 @@ body.site-menu-open { overflow: hidden; }
 .apply-review dl { display: grid; gap: 10px; margin: 0; }
 .apply-review dl div { display: grid; grid-template-columns: 120px 1fr; gap: 10px; font-size: 14px; }
 .apply-review dt { color: #7a6d60; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 800; padding-top: 3px; }
-.apply-review dd { margin: 0; }
+.apply-review dd { margin: 0; white-space: pre-wrap; }
 .apply-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
 .contact-right .btn-ghost-light { width: fit-content; }
 .apply-error { background: rgba(220,38,38,.06); border: 1px solid rgba(220,38,38,.2); color: #b42318; padding: 12px; font-size: 13px; }
