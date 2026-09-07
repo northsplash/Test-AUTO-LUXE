@@ -9,7 +9,7 @@ export function useScrollAnimation(threshold = 0.15) {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { threshold }
+      { threshold, rootMargin: '0px 0px -12% 0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();

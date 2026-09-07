@@ -38,7 +38,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
 body { background: var(--paper); overflow-x: hidden; }
 img { width: 100%; display: block; object-fit: cover; }
 button, input, select, textarea { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -204,7 +204,7 @@ h4 { font-size: 16px; }
 
 /* ─── HERO ────────────────────────────────────────────────── */
 .hero { position: relative; min-height: 100vh; background: var(--black); overflow: hidden; }
-.hero-bg { position: absolute; inset: 0; }
+.hero-bg { position: absolute; inset: -16% 0; will-change: transform; }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; transform-origin: center; animation: heroZoom 18s ease-in-out infinite alternate; }
 @keyframes heroZoom { from { transform: scale(1); } to { transform: scale(1.06); } }
 .hero-gradient {
@@ -1243,7 +1243,7 @@ h4 { font-size: 16px; }
   overflow: hidden; display: flex; flex-direction: column;
   transition: box-shadow .3s, transform .3s;
 }
-.teaser-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+.teaser-card:hover { box-shadow: var(--shadow-lg); }
 .teaser-img {
   position: relative; aspect-ratio: 16/10; overflow: hidden;
 }
@@ -1271,7 +1271,6 @@ h4 { font-size: 16px; }
 .teaser-cta {
   background: var(--ink); border: none;
 }
-.teaser-cta:hover { transform: translateY(-6px); }
 .teaser-body-cta {
   justify-content: center; align-items: flex-start; text-align: left; gap: 14px;
 }

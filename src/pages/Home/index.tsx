@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
+import { CursorGlow, Filmstrip, Marquee, ScrollProgress, TiltCard, useParallax } from '@/components/SiteMotion';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import {
   SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money,
@@ -45,17 +46,24 @@ const TABS: { id: TabId; label: string; Icon: any }[] = [
   { id: 'faq', label: 'FAQ', Icon: HelpCircle },
 ];
 
-function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+function FadeIn({
+  children,
+  delay = 0,
+  className = '',
+  variant = 'up',
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+  variant?: 'up' | 'left' | 'right' | 'scale';
+}) {
   const { ref, visible } = useScrollAnimation();
+  const variantClass = variant === 'up' ? '' : `reveal-${variant}`;
   return (
     <div
       ref={ref as React.Ref<HTMLDivElement>}
-      className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'none' : 'translateY(32px)',
-        transition: `opacity 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
-      }}
+      className={`reveal ${variantClass} ${visible ? 'is-in' : ''} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
@@ -78,6 +86,7 @@ export default function Home() {
   const [heroVisible, setHeroVisible] = useState(false);
   const [counterVal, setCounterVal] = useState(0);
   const tabRef = useRef<HTMLDivElement>(null);
+  const heroShift = useParallax(0.34);
 
   useEffect(() => {
     setTimeout(() => setHeroVisible(true), 100);
@@ -183,22 +192,35 @@ export default function Home() {
 
   return (
     <div className="site">
+      <ScrollProgress />
+      <CursorGlow />
       <Navigation onScrollTo={scrollTo} isHomePage />
 
       {/* HERO */}
       <section id="home" className="hero">
-        <div className="hero-bg">
-          <img src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
+        <div
+          className="hero-bg"
+          style={{ transform: `translate3d(0, ${heroShift}px, 0)` }}
+        >
+          <img
+            src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
+            alt="Luxury vehicle"
+          />
           <div className="hero-gradient" />
           <div className="hero-noise" />
-          <img className="hero-lockup" src="/ns-auto-luxe-full-logo.png" alt="" />
+          <img
+            className="hero-lockup"
+            src="/ns-auto-luxe-full-logo.png"
+            alt=""
+            style={{ opacity: Math.max(0.1, 0.34 - heroShift / 1600) }}
+          />
         </div>
 
         <div className={`hero-content ${heroVisible ? 'hero-visible' : ''}`}>
           <p className="eyebrow eyebrow-glow">PREMIUM AUTOMOTIVE CARE</p>
           <h1 className="hero-title">
-            Elevate<br />
-            <em>Your Drive.</em>
+            <span className="hero-word"><span>Elevate</span></span>
+            <em className="hero-word hero-word-em"><span>Your Drive.</span></em>
           </h1>
           <p className="hero-copy">
             A higher standard of vehicle care. Precision detailing, paint enhancement, ceramic protection, and concierge service designed for the way your vehicle deserves to look.
@@ -241,7 +263,7 @@ export default function Home() {
           <p className="eyebrow">THE LUXE STANDARD</p>
           <h2>Clean is the beginning.<br /><em>Exceptional is the goal.</em></h2>
         </FadeIn>
-        <FadeIn delay={150} className="intro-right">
+        <FadeIn delay={120} variant="right" className="intro-right">
           <p>North Splash Auto Luxe brings a premium mindset to automotive care. Every service is built around the condition of your vehicle, the finish you want, and the experience you expect.</p>
           <div className="intro-pillars">
             {[
@@ -261,6 +283,40 @@ export default function Home() {
           </div>
         </FadeIn>
       </section>
+
+      <Marquee
+        items={[
+          ...PACKAGES.map((pkg) => `${pkg.name}  ${money(pkg.price)}+`),
+          'Paint Correction  $350+',
+          'Ceramic Coating  $650+',
+          'Luxe Membership  from $99/mo',
+        ]}
+      />
+
+      {activeTab === null && (
+        <section className="statement-section">
+          <FadeIn variant="scale">
+            <p className="eyebrow">THE CATALOG</p>
+            <h2>Nine selves.<em>One standard.</em></h2>
+            <p className="statement-kicker">
+              Exterior, interior, or the full vehicle — Essential, Signature, and Elite — plus paint correction and ceramic coating that actually lasts.
+            </p>
+          </FadeIn>
+        </section>
+      )}
+
+      {activeTab === null && (
+        <Filmstrip
+          frames={[
+            { src: serviceByTitle('Exterior Signature').image, caption: 'Exterior Signature' },
+            { src: serviceByTitle('Interior Signature').image, caption: 'Interior Care' },
+            { src: serviceByTitle('Luxe Signature').image, caption: 'Luxe Signature' },
+            { src: serviceByTitle('Paint Correction').image, caption: 'Paint Correction' },
+            { src: serviceByTitle('Ceramic').image, caption: 'Ceramic Coating' },
+            { src: serviceByTitle('Luxe Elite').image, caption: 'Luxe Elite' },
+          ]}
+        />
+      )}
 
       {/* TAB NAVIGATION */}
       <div className="tab-nav-wrap" ref={tabRef}>
@@ -288,7 +344,7 @@ export default function Home() {
 
           <div className="teaser-grid">
             {/* Services teaser */}
-            <FadeIn className="teaser-card" delay={0}>
+            <TiltCard className="teaser-card" delay={0}>
               <div className="teaser-img">
                 <img src={serviceByTitle('Exterior Essential').image} alt="Services" />
                 <div className="teaser-overlay" />
@@ -302,10 +358,10 @@ export default function Home() {
                   View services <ArrowRight size={13} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
 
             {/* Packages teaser */}
-            <FadeIn className="teaser-card" delay={80}>
+            <TiltCard className="teaser-card" delay={80}>
               <div className="teaser-img">
                 <img src={serviceByTitle('Luxe Signature').image} alt="Packages" />
                 <div className="teaser-overlay" />
@@ -319,10 +375,10 @@ export default function Home() {
                   Compare packages <ArrowRight size={13} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
 
             {/* Protection teaser */}
-            <FadeIn className="teaser-card" delay={160}>
+            <TiltCard className="teaser-card" delay={160}>
               <div className="teaser-img">
                 <img src={serviceByTitle('Ceramic').image} alt="Protection" />
                 <div className="teaser-overlay" />
@@ -336,10 +392,10 @@ export default function Home() {
                   Explore protection <ArrowRight size={13} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
 
             {/* Gallery teaser */}
-            <FadeIn className="teaser-card" delay={0}>
+            <TiltCard className="teaser-card" delay={0}>
               <div className="teaser-img">
                 <img src={serviceByTitle('Paint Correction').image} alt="Gallery" />
                 <div className="teaser-overlay" />
@@ -353,10 +409,10 @@ export default function Home() {
                   View gallery <ArrowRight size={13} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
 
             {/* Membership teaser */}
-            <FadeIn className="teaser-card" delay={80}>
+            <TiltCard className="teaser-card" delay={80}>
               <div className="teaser-img">
                 <img src={serviceByTitle('Interior Signature').image} alt="Membership" />
                 <div className="teaser-overlay" />
@@ -370,10 +426,10 @@ export default function Home() {
                   See plans <ArrowRight size={13} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
 
             {/* Booking teaser */}
-            <FadeIn className="teaser-card teaser-cta" delay={160}>
+            <TiltCard className="teaser-card teaser-cta" delay={160}>
               <div className="teaser-body teaser-body-cta">
                 <p className="eyebrow">BOOK NOW</p>
                 <h3>Get an instant estimate</h3>
@@ -382,7 +438,7 @@ export default function Home() {
                   Book Your Detail <ArrowRight size={14} />
                 </button>
               </div>
-            </FadeIn>
+            </TiltCard>
           </div>
         </section>
       )}
