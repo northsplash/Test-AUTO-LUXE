@@ -159,6 +159,7 @@ export default function Home() {
     const id = location.hash.replace('#', '');
     if ((TABS.some((tab) => tab.id === id) || id === 'booking') && id) {
       setActiveTab(id as TabId);
+      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
     }
   }, [location.hash]);
 
