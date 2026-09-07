@@ -71,7 +71,7 @@ export default function Apply() {
       setDone({ duplicate: result.duplicate });
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Unable to send your application.';
-      setError(/row-level security|permission denied|42501|failed to fetch|functionshttperror|non-2xx/i.test(raw)
+      setError(/row-level security|permission denied|42501|failed to fetch|failed to send|edge function|functionshttperror|non-2xx/i.test(raw)
         ? `Unable to send your application. Call ${MARKET.phone} and we will take it by phone.`
         : raw);
     } finally {
