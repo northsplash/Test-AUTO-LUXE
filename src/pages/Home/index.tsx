@@ -1171,7 +1171,7 @@ export default function Home() {
                     <div className="estimate-box">
                       <div className="estimate-label">Live estimate</div>
                       <div className="estimate-price">{money(estimated)}</div>
-                      <div className="estimate-note">Starting total · mobile across {MARKET.region}</div>
+                      <div className="estimate-note">Starting total · mobile all over {MARKET.region}</div>
                       <ul className="estimate-lines">
                         {estimateLines.map((line) => <li key={line}>{line}</li>)}
                         <li>{preferredWhen}</li>
