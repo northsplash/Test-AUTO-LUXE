@@ -136,7 +136,7 @@ export default function Home() {
   const [bookingStep, setBookingStep] = useState<BookingStep>(1);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState(DEFAULT_PACKAGE_ID);
-  const [coatingYears, setCoatingYears] = useState<1 | 3 | 5>(1);
+  const [coatingYears, setCoatingYears] = useState<1 | 3 | 5>(3);
   const [vehicle, setVehicle] = useState(0);
   const [condition, setCondition] = useState('Light');
   const [selectedAddOns, setSelectedAddOns] = useState<number[]>([]);
@@ -230,7 +230,6 @@ export default function Home() {
     const match = BOOKABLE_SERVICES.find((pkg) => pkg.name === title);
     if (match) {
       setSelectedServiceId(match.id);
-      if (match.id === 'ceramic-coating') setCoatingYears(1);
     }
     setBookingStep(2);
     openTab('booking');
@@ -238,7 +237,7 @@ export default function Home() {
 
   const goBookingWith = (id: string, years?: 1 | 3 | 5) => {
     setSelectedServiceId(id);
-    if (id === 'ceramic-coating') setCoatingYears(years ?? 1);
+    if (id === 'ceramic-coating') setCoatingYears(years ?? 3);
     setBookingStep(2);
     openTab('booking');
   };
@@ -656,25 +655,6 @@ export default function Home() {
               </div>
               <p className="compare-family-blurb">{DETAIL_FAMILY_COPY[compareFamily].blurb}</p>
 
-              <div className="packages-grid">
-                {comparePackages.map((p) => (
-                  <FadeIn key={p.id} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
-                    <span className="package-tag">{p.tag}</span>
-                    {p.featured && <div className="package-glow" />}
-                    <h3>{p.name}</h3>
-                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
-                    <p className="package-minutes"><Clock size={12} /> About {formatDuration(p.minutes)}</p>
-                    <p>{p.desc}</p>
-                    <button
-                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
-                      onClick={() => goBookingWith(p.id)}
-                    >
-                      Choose {p.self === 'signature' ? 'Signature' : p.name}
-                    </button>
-                  </FadeIn>
-                ))}
-              </div>
-
               <div className="compare-wrap">
                 <table className="compare-table">
                   <thead>
@@ -699,6 +679,25 @@ export default function Home() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="packages-grid">
+                {comparePackages.map((p) => (
+                  <FadeIn key={p.id} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                    <span className="package-tag">{p.tag}</span>
+                    {p.featured && <div className="package-glow" />}
+                    <h3>{p.name}</h3>
+                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                    <p className="package-minutes"><Clock size={12} /> About {formatDuration(p.minutes)}</p>
+                    <p>{p.desc}</p>
+                    <button
+                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                      onClick={() => goBookingWith(p.id)}
+                    >
+                      Choose {p.self === 'signature' ? 'Signature' : p.name}
+                    </button>
+                  </FadeIn>
+                ))}
               </div>
 
               {DETAIL_FAMILIES.filter((family) => family !== compareFamily).map((family) => (
