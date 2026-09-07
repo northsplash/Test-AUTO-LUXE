@@ -59,6 +59,8 @@ export default function Apply() {
     return emptyApplication(role);
   });
   const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    const fromUrl = Number(params.get('step'));
+    if (fromUrl === 2 || fromUrl === 3 || fromUrl === 4) return fromUrl;
     if (params.get('role')) return 1;
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
@@ -132,7 +134,7 @@ export default function Apply() {
         <section className="apply-intro">
           <Link className="apply-back" to="/"><ArrowLeft size={16} /> Back to the site</Link>
           <p className="eyebrow">CAREERS · NORTH CAROLINA</p>
-          <h1>Apply to work at North Splash.</h1>
+          <h1>Apply to North Splash.</h1>
           <p>Pick a seat, answer in your own words, send it. No account. Hiring reads every application.</p>
           <span className="apply-market"><MapPin size={14} /> {MARKET.region} · <a href={`tel:${MARKET.phoneTel}`}>{MARKET.phone}</a></span>
         </section>

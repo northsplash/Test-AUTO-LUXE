@@ -730,7 +730,8 @@ body.site-menu-open { overflow: hidden; }
 .apply-roles > button { display: grid; grid-template-columns: auto 1fr; gap: 14px; text-align: left; padding: 18px; border: 1px solid #ddd; background: var(--paper, #f7f3eb); }
 .apply-roles > button.active { border-color: var(--ink); background: #17110d; color: #fff; }
 .apply-roles strong, .apply-roles small, .apply-roles em { display: block; }
-.apply-roles small { opacity: .7; margin: 4px 0 8px; font-size: 12px; letter-spacing: .02em; }
+.apply-roles small { opacity: .88; margin: 4px 0 8px; font-size: 12px; letter-spacing: .02em; color: #3a342c; }
+.apply-roles > button.active small { color: rgba(255,255,255,.88); }
 .apply-roles em { font-style: normal; font-size: 14px; line-height: 1.55; opacity: .9; }
 .apply-roles ul { display: none; list-style: none; padding: 10px 0 0; margin: 10px 0 0; gap: 6px; border-top: 1px solid rgba(17,17,17,.08); }
 .apply-roles > button.active ul { display: grid; }

@@ -262,6 +262,11 @@ body { overflow-x: hidden; }
   .apply-panel { padding: 18px 16px !important; }
   .apply-roles h2 { font-size: 20px !important; margin: 0 0 6px !important; }
   .apply-fit-lead { display: none; }
+  .apply-fields .apply-fit-lead {
+    display: block;
+    font-size: 13px;
+    margin: 0 0 8px;
+  }
   .apply-roles ul,
   .apply-roles > button.active ul,
   .apply-roles em {
