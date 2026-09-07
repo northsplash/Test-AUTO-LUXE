@@ -18,7 +18,7 @@ export const OPEN_ROLES: OpenRole[] = [
   {
     id: 'detailer',
     title: 'Mobile Detailer',
-    pay: '$25–$45+ / hr on a full book · tips on top',
+    pay: '$17+ / hr',
     summary:
       'You are the visit. Drive to homes and offices across North Carolina, photograph the vehicle, run the booked package, and leave the owner with a clean car and a walk-around they can trust.',
     duties: [
@@ -42,7 +42,7 @@ export const OPEN_ROLES: OpenRole[] = [
   {
     id: 'd2d_agent',
     title: 'Door-to-door Sales',
-    pay: 'Base + commission · $400–$1,200 / week',
+    pay: '$300 / week base + commission',
     summary:
       'You knock neighborhoods we already map, book mobile details, and turn a five-minute porch conversation into a paid appointment. This is field sales, not a call-center seat.',
     duties: [
@@ -66,7 +66,7 @@ export const OPEN_ROLES: OpenRole[] = [
   {
     id: 'manager',
     title: 'Operations / Concierge',
-    pay: '$18–$28 / hr to start',
+    pay: '$18+ / hr',
     summary:
       'You sit at the desk that keeps North Carolina booked. Answer the phone, confirm tomorrow’s routes, handle deposits and weather calls, and make sure the van and the customer show up at the same address.',
     duties: [

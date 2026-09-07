@@ -170,7 +170,7 @@ export default function Apply() {
               {step === 1 && (
                 <div className="apply-roles">
                   <h2>Choose the seat you actually want.</h2>
-                  <p className="apply-fit-lead">Typical weekly pay, not a guarantee. Training and a full book change the number.</p>
+                  <p className="apply-fit-lead">Starting pay for the seat. D2D is a weekly draw plus commission.</p>
                   {OPEN_ROLES.map((item) => (
                     <button
                       type="button"
