@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { sendCommunication } from '@/lib/communications';
 import { Navigation } from '@/components/Navigation';
+import { Footer } from '@/components/Footer';
+import { MARKET } from '@/lib/market';
 
 declare global {
   interface Window {
@@ -55,7 +57,7 @@ export default function Checkout() {
           import.meta.env.VITE_SQUARE_LOCATION_ID;
 
         if (!applicationId || !locationId) {
-          setError('Card checkout is not connected yet. Book from the site and we will confirm by phone at 330-990-3956.');
+          setError(`Card checkout is not connected yet. Book from the site and we will confirm by phone at ${MARKET.phone}.`);
           setLoading(false);
           return;
         }
@@ -298,7 +300,7 @@ export default function Checkout() {
         ? err.message
         : 'Payment failed. Please try again.'
     );
-
+  } finally {
     setPaying(false);
   }
 };
@@ -307,7 +309,7 @@ export default function Checkout() {
     return (
       <div className="luxe-checkout">
         <Navigation />
-        <main className="luxe-checkout-main">
+        <main id="main" className="luxe-checkout-main">
           <section className="luxe-checkout-card">
             <p className="eyebrow">SECURE CHECKOUT</p>
             <h1>No booking to complete</h1>
@@ -315,6 +317,7 @@ export default function Checkout() {
             <Link className="btn-white" to="/#booking">Book a detail</Link>
           </section>
         </main>
+        <Footer />
       </div>
     );
   }
@@ -325,7 +328,7 @@ export default function Checkout() {
   return (
     <div className="luxe-checkout">
       <Navigation />
-      <main className="luxe-checkout-main">
+      <main id="main" className="luxe-checkout-main">
         <section className="luxe-checkout-card">
           <img className="luxe-checkout-mark" src="/ns-auto-luxe-full-logo.png" alt="" />
           <p className="eyebrow">NORTH SPLASH AUTO LUXE</p>
@@ -367,6 +370,7 @@ export default function Checkout() {
           <Link className="luxe-checkout-back" to="/">Back to the site</Link>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

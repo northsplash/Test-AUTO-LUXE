@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
   Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft, Clock,
@@ -19,6 +19,7 @@ import {
 import type { DetailFamily } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
+import { MARKET } from '@/lib/market';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 const BOOK_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:30 PM', '4:00 PM'] as const;
@@ -126,6 +127,7 @@ function FadeIn({
 
 export default function Home() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [paidNotice, setPaidNotice] = useState(() => Boolean((location.state as { paymentSuccess?: boolean } | null)?.paymentSuccess));
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [serviceFilter, setServiceFilter] = useState('All');
@@ -157,9 +159,14 @@ export default function Home() {
 
   useEffect(() => {
     const id = location.hash.replace('#', '');
-    if ((TABS.some((tab) => tab.id === id) || id === 'booking') && id) {
+    if (!id) return;
+    if (TABS.some((tab) => tab.id === id)) {
       setActiveTab(id as TabId);
       setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
+      return;
+    }
+    if (id === 'reviews' || id === 'contact' || id === 'home') {
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
     }
   }, [location.hash]);
 
@@ -178,15 +185,18 @@ export default function Home() {
     }
   }, [heroVisible]);
 
+  const setHash = (id: string) => {
+    if (location.hash.replace('#', '') === id) return;
+    navigate({ hash: id }, { replace: true });
+  };
+
   const scrollTo = (id: string) => {
-    if (id === 'booking') {
-      setActiveTab('booking');
-      setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } else if (id === 'contact' || id === 'reviews') {
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-    } else {
+    setHash(id);
+    if (id === 'booking' || TABS.some((tab) => tab.id === id)) {
       setActiveTab(id as TabId);
       setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -264,10 +274,15 @@ export default function Home() {
       setBookingStep(4);
       return;
     }
+    if (formData.phone.replace(/\D/g, '').length < 10) {
+      setBookingError('Enter a 10-digit phone number so we can confirm this window.');
+      setBookingStep(4);
+      return;
+    }
     setBookingError('');
     setBookingSending(true);
     try {
-      const where = formData.address.trim() || 'Raleigh, NC 27616';
+      const where = formData.address.trim() || MARKET.region;
       const dateOptions = preferredDateOptions();
       const whenLabel = `${dateOptions.find((d) => d.value === formData.preferred_date)?.label || formData.preferred_date} · ${formData.preferred_time}`;
       const windowNote = `Preferred window: ${whenLabel}`;
@@ -310,11 +325,13 @@ export default function Home() {
 
   const openTab = (tab: TabId) => {
     setActiveTab(tab);
+    setHash(tab);
     setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   };
 
   const closeTab = () => {
     setActiveTab(null);
+    if (location.hash) navigate({ pathname: '/', hash: '' }, { replace: true });
     setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
@@ -323,6 +340,7 @@ export default function Home() {
       <ScrollProgress />
       <CursorGlow />
       <Navigation onScrollTo={scrollTo} isHomePage />
+      <main id="main">
       {paidNotice && (
         <div className="luxe-paid-banner" role="status">
           <strong>Payment received.</strong>
@@ -341,6 +359,10 @@ export default function Home() {
             src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900"
             srcSet="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=800 800w, https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=1600 1600w, https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=2400 2400w"
             sizes="100vw"
+            width={1600}
+            height={900}
+            fetchPriority="high"
+            decoding="async"
             alt="Luxury vehicle after a North Splash Auto Luxe detail"
           />
           <div className="hero-gradient" />
@@ -357,7 +379,7 @@ export default function Home() {
             <em className="hero-word hero-word-em"><span>Your Drive.</span></em>
           </h1>
           <p className="hero-copy">
-            Mobile detailing from Raleigh, NC 27616. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.
+            Mobile detailing across North Carolina. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.
           </p>
           <div className="hero-actions">
             <button className="btn-white" onClick={() => scrollTo('booking')}>
@@ -431,7 +453,7 @@ export default function Home() {
         <section className="statement-section">
           <FadeIn variant="scale">
             <p className="eyebrow">THE CATALOG</p>
-            <h2>Nine selves.<em>One standard.</em></h2>
+            <h2>Nine packages.<em>One standard.</em></h2>
             <p className="statement-kicker">
               Exterior, interior, or the full vehicle — Essential, Signature, and Elite — plus paint correction and ceramic coating that actually lasts.
             </p>
@@ -453,11 +475,14 @@ export default function Home() {
       )}
 
       {/* TAB NAVIGATION */}
-      <div className="tab-nav-wrap" ref={tabRef}>
-        <div className="tab-nav">
+      <div className="tab-nav-wrap" ref={tabRef} id="catalog">
+        <div className="tab-nav" role="tablist" aria-label="Catalog">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id}
               className={`tab-nav-btn ${activeTab === id ? 'tab-nav-active' : ''}`}
               onClick={() => openTab(id)}
             >
@@ -487,7 +512,7 @@ export default function Home() {
               <div className="teaser-body">
                 <p className="eyebrow">SERVICES</p>
                 <h3>Care without shortcuts</h3>
-                <p>Nine detail selves plus paint correction and ceramic coating. {SERVICES.length} services from {money(SERVICES[0].price)} — duration and inclusions on every card.</p>
+                <p>Nine detail packages plus paint correction and ceramic coating. {SERVICES.length} services from {money(SERVICES[0].price)} — duration and inclusions on every card.</p>
                 <button className="teaser-link" onClick={() => openTab('services')}>
                   View services <ArrowRight size={13} />
                 </button>
@@ -504,7 +529,7 @@ export default function Home() {
               <div className="teaser-body">
                 <p className="eyebrow">PACKAGES</p>
                 <h3>Choose your level of Luxe</h3>
-                <p>Exterior, interior, and full-vehicle selves — Essential, Signature, and Elite — from {money(PACKAGES[0].price)} to {money(PACKAGES[PACKAGES.length - 1].price)}.</p>
+                <p>Exterior, interior, and full-vehicle packages — Essential, Signature, and Elite — from {money(PACKAGES[0].price)} to {money(PACKAGES[PACKAGES.length - 1].price)}.</p>
                 <button className="teaser-link" onClick={() => openTab('packages')}>
                   Compare packages <ArrowRight size={13} />
                 </button>
@@ -637,7 +662,7 @@ export default function Home() {
           {activeTab === 'packages' && (
             <div className="tab-panel">
               <FadeIn className="center-heading">
-                <p className="eyebrow">COMPARE THE THREE SELVES</p>
+                <p className="eyebrow">COMPARE THE THREE LEVELS</p>
                 <h2>Essential, Signature, or Elite.</h2>
                 <p>A side-by-side like a product compare page. Signature is the one most owners book. Vehicle size and condition can change the final total.</p>
               </FadeIn>
@@ -956,7 +981,7 @@ export default function Home() {
                     <div><dt>Where</dt><dd>{bookingReceipt.where}</dd></div>
                     {bookingReceipt.id && <div><dt>Request</dt><dd>#{String(bookingReceipt.id).slice(0, 8)}</dd></div>}
                   </dl>
-                  <p>Thanks {bookingReceipt.name.split(' ')[0]}. We hold this as a request until North Splash confirms. Watch email, or call 330-990-3956.</p>
+                  <p>Thanks {bookingReceipt.name.split(' ')[0]}. We hold this as a request until North Splash confirms. Watch email, or call {MARKET.phone}.</p>
                   <button type="button" className="btn-outline" onClick={() => { setFormSent(false); setBookingReceipt(null); setBookingStep(1); }}>Book another vehicle</button>
                 </div>
               ) : (
@@ -1096,7 +1121,7 @@ export default function Home() {
                           </div>
                           <div className="form-group">
                             <label>Service location</label>
-                            <input placeholder="Street, Raleigh NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
+                            <input required placeholder="Street, city, NC" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} autoComplete="street-address" />
                           </div>
                         </>
                       )}
@@ -1105,16 +1130,16 @@ export default function Home() {
                           <div className="form-row">
                             <div className="form-group">
                               <label>Full Name</label>
-                              <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                              <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} autoComplete="name" />
                             </div>
                             <div className="form-group">
                               <label>Phone Number</label>
-                              <input required type="tel" placeholder="919-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                              <input required type="tel" inputMode="tel" placeholder={MARKET.phonePlaceholder} value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} autoComplete="tel" />
                             </div>
                           </div>
                           <div className="form-group">
                             <label>Email Address</label>
-                            <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                            <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} autoComplete="email" />
                           </div>
                           <div className="form-group">
                             <label>Additional Notes</label>
@@ -1146,7 +1171,7 @@ export default function Home() {
                     <div className="estimate-box">
                       <div className="estimate-label">Live estimate</div>
                       <div className="estimate-price">{money(estimated)}</div>
-                      <div className="estimate-note">Starting total · Raleigh, NC 27616</div>
+                      <div className="estimate-note">Starting total · mobile across {MARKET.region}</div>
                       <ul className="estimate-lines">
                         {estimateLines.map((line) => <li key={line}>{line}</li>)}
                         <li>{preferredWhen}</li>
@@ -1173,7 +1198,7 @@ export default function Home() {
                 <FadeIn className="faq-heading">
                   <p className="eyebrow">FAQ</p>
                   <h2>Questions, answered.</h2>
-                  <p>Search or filter, then open a row. Still stuck? Book a window or call 330-990-3956.</p>
+                  <p>Search or filter, then open a row. Still stuck? Book a window or call {MARKET.phone}.</p>
                   <label className="faq-search">
                     <Search size={16} />
                     <input
@@ -1197,7 +1222,7 @@ export default function Home() {
                 </FadeIn>
                 <div className="faq-list">
                   {visibleFaqs.length === 0 && (
-                    <p className="gallery-empty">No matches. Try another word, or call 330-990-3956.</p>
+                    <p className="gallery-empty">No matches. Try another word, or call {MARKET.phone}.</p>
                   )}
                   {visibleFaqs.map((item, i) => (
                     <div key={item.q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
@@ -1213,7 +1238,7 @@ export default function Home() {
                   <div className="faq-cta">
                     <p>Still have a question?</p>
                     <button type="button" className="btn-primary" onClick={() => openTab('booking')}>Book a window</button>
-                    <a className="btn-outline" href="tel:3309903956">Call 330-990-3956</a>
+                    <a className="btn-outline" href={`tel:${MARKET.phoneTel}`}>Call {MARKET.phone}</a>
                   </div>
                 </div>
               </div>
@@ -1273,17 +1298,18 @@ export default function Home() {
         <FadeIn className="contact-left">
           <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
           <h2>Your vehicle.<br /><em>Our standard.</em></h2>
-          <p>Ready to elevate the finish? We service Raleigh, NC 27616 and nearby Wake County.</p>
+          <p>Ready to elevate the finish? We service all of North Carolina — driveway to driveway.</p>
         </FadeIn>
         <FadeIn delay={150} className="contact-right">
-          <a href="tel:3309903956" className="contact-link">330-990-3956</a>
-          <span className="contact-link">Raleigh, NC 27616</span>
-          <a href="mailto:support@northsplash.com" className="contact-link">support@northsplash.com</a>
+          <a href={`tel:${MARKET.phoneTel}`} className="contact-link">{MARKET.phone}</a>
+          <span className="contact-link">{MARKET.region}</span>
+          <a href={`mailto:${MARKET.email}`} className="contact-link">{MARKET.email}</a>
           <button className="btn-white" onClick={() => scrollTo('booking')}>Book Auto Luxe</button>
         </FadeIn>
       </section>
 
       <Footer onScrollTo={scrollTo} />
+      </main>
     </div>
   );
 }

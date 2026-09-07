@@ -116,10 +116,6 @@ body { overflow-x: hidden; }
 .luxe-checkout .btn-white:disabled { opacity: .7; cursor: wait; }
 
 @media (min-width: 821px) and (max-width: 1180px) {
-  .nav-links { display: flex !important; }
-  .nav-links button { font-size: 10px; padding: 8px 9px; letter-spacing: .12em; }
-  .menu-toggle { display: none !important; }
-  .nav-book { display: inline-flex !important; }
   .hero-content { padding-left: 48px; padding-right: 48px; max-width: 720px; }
   .hero-stats { display: flex !important; flex-wrap: nowrap !important; }
   .hero-stat-divider { display: block !important; }
@@ -175,6 +171,17 @@ body { overflow-x: hidden; }
   .nav-links button:hover { color: #fff; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .luxe-checkout-card { animation: none; }
+.luxe-checkout .site-footer {
+  background: #090909;
+  color: rgba(255,255,255,.7);
+  border-top: 1px solid rgba(255,255,255,.08);
 }
+.luxe-checkout .site-footer h4,
+.luxe-checkout .site-footer button,
+.luxe-checkout .site-footer a,
+.luxe-checkout .site-footer p,
+.luxe-checkout .site-footer small,
+.luxe-checkout .site-footer span {
+  color: rgba(255,255,255,.78);
+}
+.luxe-checkout .footer-logo-image { filter: none; }
