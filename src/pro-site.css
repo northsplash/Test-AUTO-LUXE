@@ -328,7 +328,7 @@ section {
     grid-template-columns: 1fr 1fr !important;
   }
   .apply-steps {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
   .pkg-choices {
     grid-template-columns: 1fr 1fr !important;
