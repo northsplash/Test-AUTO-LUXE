@@ -7,3 +7,6 @@ export const MARKET = {
   email: 'support@northsplash.com',
   phonePlaceholder: '919-000-0000',
 } as const;
+
+export const HERO_COPY =
+  'Mobile detailing all over North Carolina. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.';

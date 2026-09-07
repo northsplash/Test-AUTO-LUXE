@@ -5,7 +5,7 @@ export const OPEN_ROLES = [
     id: 'detailer',
     title: 'Mobile Detailer',
     pay: 'Hourly, with room to grow by level',
-    summary: 'Bring the North Splash standard to driveways across North Carolina. You run the job, the finish, and the customer walk-around.',
+    summary: 'Bring the North Splash standard to driveways all over North Carolina. You run the job, the finish, and the customer walk-around.',
     fits: ['Comfortable working outdoors and on your feet', 'Careful with paint, interiors, and customer property', 'Reliable transportation to job sites'],
   },
   {

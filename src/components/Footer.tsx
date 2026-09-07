@@ -22,7 +22,7 @@ export function Footer({ onScrollTo }: Props) {
           <div className="footer-brand">
             <img className="footer-logo-image" src="/ns-auto-luxe-full-logo.png" alt="North Splash Auto Luxe Premium Detailing"/>
           </div>
-          <p>Premium automotive care across North Carolina. Built around the finish that lasts.</p>
+          <p>Premium automotive care all over North Carolina. Built around the finish that lasts.</p>
         </div>
 
         <div className="footer-col">
@@ -64,7 +64,7 @@ export function Footer({ onScrollTo }: Props) {
         <div className="footer-apply">
           <div>
             <strong>Want to work here?</strong>
-            <p>Detailers and door-to-door reps across North Carolina. Four steps. No account required.</p>
+            <p>Detailers and door-to-door reps all over North Carolina. Four steps. No account required.</p>
           </div>
           <Link to="/apply" className="footer-apply-btn">Apply for a job</Link>
         </div>

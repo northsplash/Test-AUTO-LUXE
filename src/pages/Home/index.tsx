@@ -19,7 +19,7 @@ import {
 import type { DetailFamily } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
-import { MARKET } from '@/lib/market';
+import { HERO_COPY, MARKET } from '@/lib/market';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 const BOOK_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:30 PM', '4:00 PM'] as const;
@@ -379,7 +379,7 @@ export default function Home() {
             <em className="hero-word hero-word-em"><span>Your Drive.</span></em>
           </h1>
           <p className="hero-copy">
-            Mobile detailing across North Carolina. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.
+            {HERO_COPY}
           </p>
           <div className="hero-actions">
             <button className="btn-white" onClick={() => scrollTo('booking')}>
@@ -1298,7 +1298,7 @@ export default function Home() {
         <FadeIn className="contact-left">
           <p className="eyebrow eyebrow-glow">NORTH SPLASH AUTO LUXE</p>
           <h2>Your vehicle.<br /><em>Our standard.</em></h2>
-          <p>Ready to elevate the finish? We service all of North Carolina — driveway to driveway.</p>
+          <p>Ready to elevate the finish? We service all over North Carolina — driveway to driveway.</p>
         </FadeIn>
         <FadeIn delay={150} className="contact-right">
           <a href={`tel:${MARKET.phoneTel}`} className="contact-link">{MARKET.phone}</a>

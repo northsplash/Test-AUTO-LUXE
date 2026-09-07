@@ -1,6 +1,6 @@
 # North Splash Auto Luxe — public detailing website
 
-This repository is the **customer-facing detailing site**: services, packages, ceramic protection, membership, booking, and job applications. The home market is statewide North Carolina, not a single ZIP. Public phone stays 330-990-3956.
+This repository is the **customer-facing detailing site**: services, packages, ceramic protection, membership, booking, and job applications. Mobile detailing is all over North Carolina, not a single city or ZIP. Public phone stays 330-990-3956.
 
 Portal login on this site sends people to the **operating system**, which is a separate product.
 
