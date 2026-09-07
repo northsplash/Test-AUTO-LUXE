@@ -184,6 +184,35 @@ export const SPECIALTY_SERVICES: DetailPackage[] = [
 
 export const BOOKABLE_SERVICES: DetailPackage[] = [...DETAIL_PACKAGES, ...SPECIALTY_SERVICES];
 
+export type CompareCell = boolean | 'optional';
+
+export function compareRowsForFamily(family: DetailFamily) {
+  const pkgs = packagesForFamily(family);
+  const normalize = (label: string) => label.replace(/^(Exterior|Interior) · /, '');
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  for (const pkg of pkgs) {
+    for (const step of pkg.checklist) {
+      const key = normalize(step.label);
+      if (!seen.has(key)) {
+        seen.add(key);
+        labels.push(key);
+      }
+    }
+  }
+  const cell = (self: DetailSelf, key: string): CompareCell => {
+    const step = pkgs.find((pkg) => pkg.self === self)?.checklist.find((item) => normalize(item.label) === key);
+    if (!step) return false;
+    return step.required ? true : 'optional';
+  };
+  return labels.map((label) => ({
+    label,
+    essential: cell('essential', label),
+    signature: cell('signature', label),
+    elite: cell('elite', label),
+  }));
+}
+
 const NAME_ALIASES: Record<string, string> = {
   'luxe exterior detail': 'exterior-signature',
   'exterior detail': 'exterior-signature',

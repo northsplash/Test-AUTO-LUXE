@@ -2,7 +2,8 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
-  Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
+  Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft, Clock,
+  Search, X
 } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
@@ -11,8 +12,11 @@ import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import {
   SERVICES, PACKAGES, MEMBERSHIPS, ADD_ONS, VEHICLE_SIZES, FAQS, money,
   BOOKABLE_SERVICES, DETAIL_FAMILIES, DETAIL_FAMILY_COPY, DEFAULT_PACKAGE_ID,
-  COATING_TIERS, packagesForFamily, serviceSelectGroups,
+  COATING_TIERS, packagesForFamily, serviceSelectGroups, formatDuration,
+  compareRowsForFamily, GALLERY_PIECES, GALLERY_FILTERS, FAQ_GROUPS,
+  PROTECTION_PROCESS, PROTECTION_AFTERCARE, MEMBERSHIP_COMPARE,
 } from '@/lib/data';
+import type { DetailFamily } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
 
@@ -71,6 +75,20 @@ function bookableById(id: string) {
 }
 
 type TabId = 'services' | 'packages' | 'protection' | 'gallery' | 'membership' | 'booking' | 'faq';
+type BookingStep = 1 | 2 | 3 | 4;
+
+const BOOK_STEPS: { n: BookingStep; label: string; hint: string }[] = [
+  { n: 1, label: 'Service', hint: 'Choose a package' },
+  { n: 2, label: 'Vehicle', hint: 'Size & add-ons' },
+  { n: 3, label: 'Window', hint: 'When & where' },
+  { n: 4, label: 'Contact', hint: 'Your details' },
+];
+
+function CompareCell({ value }: { value: boolean | 'optional' }) {
+  if (value === true) return <span className="compare-yes"><Check size={14} /> Included</span>;
+  if (value === 'optional') return <span className="compare-opt">Optional</span>;
+  return <span className="compare-no"><X size={12} /> —</span>;
+}
 
 const TABS: { id: TabId; label: string; Icon: any }[] = [
   { id: 'services', label: 'Services', Icon: Car },
@@ -111,6 +129,11 @@ export default function Home() {
   const [paidNotice, setPaidNotice] = useState(() => Boolean((location.state as { paymentSuccess?: boolean } | null)?.paymentSuccess));
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [serviceFilter, setServiceFilter] = useState('All');
+  const [compareFamily, setCompareFamily] = useState<DetailFamily>('full');
+  const [galleryFilter, setGalleryFilter] = useState<(typeof GALLERY_FILTERS)[number]>('All');
+  const [faqQuery, setFaqQuery] = useState('');
+  const [faqGroup, setFaqGroup] = useState<(typeof FAQ_GROUPS)[number]>('All');
+  const [bookingStep, setBookingStep] = useState<BookingStep>(1);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState(DEFAULT_PACKAGE_ID);
   const [coatingYears, setCoatingYears] = useState<1 | 3 | 5>(1);
@@ -131,6 +154,13 @@ export default function Home() {
     setTimeout(() => setHeroVisible(true), 100);
     trackPageView('/').catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const id = location.hash.replace('#', '');
+    if ((TABS.some((tab) => tab.id === id) || id === 'booking') && id) {
+      setActiveTab(id as TabId);
+    }
+  }, [location.hash]);
 
   useEffect(() => {
     if (heroVisible) {
@@ -178,6 +208,22 @@ export default function Home() {
 
   const filterCategory = FILTER_CATEGORY[serviceFilter] ?? null;
   const filtered = filterCategory ? SERVICES.filter((s) => s.category === filterCategory) : SERVICES;
+  const galleryPieces = galleryFilter === 'All' ? GALLERY_PIECES : GALLERY_PIECES.filter((piece) => piece.tag === galleryFilter);
+  const compareRows = compareRowsForFamily(compareFamily);
+  const comparePackages = packagesForFamily(compareFamily);
+  const visibleFaqs = FAQS.filter((item) => {
+    const groupOk = faqGroup === 'All' || item.group === faqGroup;
+    const q = faqQuery.trim().toLowerCase();
+    const queryOk = !q || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
+    return groupOk && queryOk;
+  });
+  const preferredWhen = `${preferredDateOptions().find((d) => d.value === formData.preferred_date)?.label || formData.preferred_date} · ${formData.preferred_time}`;
+  const estimateLines = [
+    selectedBookable.name + (selectedBookable.id === 'ceramic-coating' ? ` (${coatingYears}-year)` : ''),
+    VEHICLE_SIZES[vehicle].name,
+    condition === 'Light' ? null : `${condition} condition`,
+    ...selectedAddOns.map((i) => ADD_ONS[i][0]),
+  ].filter(Boolean) as string[];
 
   const bookService = (title: string) => {
     const match = BOOKABLE_SERVICES.find((pkg) => pkg.name === title);
@@ -185,12 +231,39 @@ export default function Home() {
       setSelectedServiceId(match.id);
       if (match.id === 'ceramic-coating') setCoatingYears(1);
     }
+    setBookingStep(2);
     openTab('booking');
+  };
+
+  const goBookingWith = (id: string, years?: 1 | 3 | 5) => {
+    setSelectedServiceId(id);
+    if (id === 'ceramic-coating') setCoatingYears(years ?? 1);
+    setBookingStep(2);
+    openTab('booking');
+  };
+
+  const advanceBooking = () => {
+    if (bookingStep === 3 && !formData.address.trim()) {
+      setBookingError('Add the service address so we know where to meet you.');
+      return;
+    }
+    setBookingError('');
+    setBookingStep((step) => (Math.min(4, step + 1) as BookingStep));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formSent) return;
+    if (!formData.address.trim()) {
+      setBookingError('Add the service address so we know where to meet you.');
+      setBookingStep(3);
+      return;
+    }
+    if (!formData.name.trim() || !formData.phone.trim() || !formData.email.trim()) {
+      setBookingError('Name, phone, and email are required.');
+      setBookingStep(4);
+      return;
+    }
     setBookingError('');
     setBookingSending(true);
     try {
@@ -414,7 +487,7 @@ export default function Home() {
               <div className="teaser-body">
                 <p className="eyebrow">SERVICES</p>
                 <h3>Care without shortcuts</h3>
-                <p>Nine detail selves plus paint correction and ceramic coating. {SERVICES.length} services starting at {money(SERVICES[0].price)}.</p>
+                <p>Nine detail selves plus paint correction and ceramic coating. {SERVICES.length} services from {money(SERVICES[0].price)} — duration and inclusions on every card.</p>
                 <button className="teaser-link" onClick={() => openTab('services')}>
                   View services <ArrowRight size={13} />
                 </button>
@@ -448,7 +521,7 @@ export default function Home() {
               <div className="teaser-body">
                 <p className="eyebrow">PROTECTION</p>
                 <h3>Built to protect</h3>
-                <p>Ceramic coating in 1, 3, and 5-year tiers. Hydrophobic protection with deeper gloss.</p>
+                <p>Ceramic coating in 1, 3, and 5-year tiers — with the prep, cure, and aftercare a coating studio would show you.</p>
                 <button className="teaser-link" onClick={() => openTab('protection')}>
                   Explore protection <ArrowRight size={13} />
                 </button>
@@ -482,7 +555,7 @@ export default function Home() {
               <div className="teaser-body">
                 <p className="eyebrow">MEMBERSHIP</p>
                 <h3>Don't wait until it needs rescuing</h3>
-                <p>Three maintenance plans from {money(MEMBERSHIPS[0].price)}/mo to {money(MEMBERSHIPS[2].price)}/mo. Consistency pays.</p>
+                <p>Three maintenance plans from {money(MEMBERSHIPS[0].price)}/mo. Most members choose Luxe Plus.</p>
                 <button className="teaser-link" onClick={() => openTab('membership')}>
                   See plans <ArrowRight size={13} />
                 </button>
@@ -494,7 +567,7 @@ export default function Home() {
               <div className="teaser-body teaser-body-cta">
                 <p className="eyebrow">BOOK NOW</p>
                 <h3>Get an instant estimate</h3>
-                <p>Build your service, pick your add-ons, and request your appointment in minutes.</p>
+                <p>Four steps: service, vehicle, window, contact. A live estimate stays with you the whole way.</p>
                 <button className="btn-primary" onClick={() => openTab('booking')}>
                   Book Your Detail <ArrowRight size={14} />
                 </button>
@@ -514,37 +587,38 @@ export default function Home() {
             <h2>{TABS.find(t => t.id === activeTab)?.label}</h2>
           </div>
 
-          {/* SERVICES TAB */}
+          {/* SERVICES TAB — studio catalog: duration, from-price, included list, most booked */}
           {activeTab === 'services' && (
             <div className="tab-panel">
-              <FadeIn className="section-header dark-header">
+              <FadeIn className="section-header">
                 <div>
-                  <p className="eyebrow eyebrow-dim">SERVICES</p>
+                  <p className="eyebrow">STUDIO CATALOG</p>
                   <h2>Care without shortcuts.</h2>
                 </div>
-                <p>From a polished daily driver to a full paint transformation.</p>
+                <p>Duration, a from-price, and what’s included — the way a ceramic studio lists work, not a wash menu.</p>
               </FadeIn>
-              <div className="filter-row">
+              <div className="filter-row filter-row-light">
                 {SERVICE_FILTERS.map(f => (
-                  <button key={f} className={`filter-btn ${serviceFilter === f ? 'filter-active' : ''}`} onClick={() => setServiceFilter(f)}>
+                  <button key={f} className={`filter-btn filter-btn-light ${serviceFilter === f ? 'filter-active-light' : ''}`} onClick={() => setServiceFilter(f)}>
                     {f}
                   </button>
                 ))}
               </div>
               <div className="service-grid">
                 {filtered.map((s, i) => (
-                  <FadeIn key={s.title} delay={i * 80} className="service-card">
+                  <FadeIn key={s.title} delay={i * 60} className={`service-card ${s.popular ? 'service-card-popular' : ''}`}>
                     <div className="service-img">
                       <img src={s.image} alt={s.title} />
                       <div className="service-img-overlay" />
+                      {s.popular && <span className="service-popular">Most booked</span>}
                       <span className="service-badge">{s.category}</span>
                     </div>
                     <div className="service-body">
                       <div className="service-top">
                         <h3>{s.title}</h3>
-                        <strong className="service-price">{money(s.price)}<sup>+</sup></strong>
+                        <strong className="service-price"><span>from</span> {money(s.price)}</strong>
                       </div>
-                      <p className="service-minutes">About {s.minutes} minutes</p>
+                      <p className="service-minutes"><Clock size={12} /> About {formatDuration(s.minutes)}</p>
                       <p>{s.desc}</p>
                       <ul>
                         {s.items.map(item => <li key={item}><Check size={11} /> {item}</li>)}
@@ -559,40 +633,91 @@ export default function Home() {
             </div>
           )}
 
-          {/* PACKAGES TAB */}
+          {/* PACKAGES TAB — Tesla/Apple Good-Better-Best matrix */}
           {activeTab === 'packages' && (
             <div className="tab-panel">
               <FadeIn className="center-heading">
-                <p className="eyebrow">NINE DETAIL SELVES</p>
-                <h2>Exterior, interior, or the full vehicle.</h2>
-                <p>Each family has Essential, Signature, and Elite. Starting prices below. Vehicle size and condition can change the final total.</p>
+                <p className="eyebrow">COMPARE THE THREE SELVES</p>
+                <h2>Essential, Signature, or Elite.</h2>
+                <p>A side-by-side like a product compare page. Signature is the one most owners book. Vehicle size and condition can change the final total.</p>
               </FadeIn>
-              {DETAIL_FAMILIES.map((family) => (
-                <div key={family} className="package-family">
+
+              <div className="filter-row filter-row-light compare-family-nav">
+                {DETAIL_FAMILIES.map((family) => (
+                  <button
+                    key={family}
+                    className={`filter-btn filter-btn-light ${compareFamily === family ? 'filter-active-light' : ''}`}
+                    onClick={() => setCompareFamily(family)}
+                  >
+                    {DETAIL_FAMILY_COPY[family].title}
+                  </button>
+                ))}
+              </div>
+              <p className="compare-family-blurb">{DETAIL_FAMILY_COPY[compareFamily].blurb}</p>
+
+              <div className="packages-grid">
+                {comparePackages.map((p) => (
+                  <FadeIn key={p.id} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
+                    <span className="package-tag">{p.tag}</span>
+                    {p.featured && <div className="package-glow" />}
+                    <h3>{p.name}</h3>
+                    <div className="package-price">{money(p.price)}<sup>+</sup></div>
+                    <p className="package-minutes"><Clock size={12} /> About {formatDuration(p.minutes)}</p>
+                    <p>{p.desc}</p>
+                    <button
+                      className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
+                      onClick={() => goBookingWith(p.id)}
+                    >
+                      Choose {p.self === 'signature' ? 'Signature' : p.name}
+                    </button>
+                  </FadeIn>
+                ))}
+              </div>
+
+              <div className="compare-wrap">
+                <table className="compare-table">
+                  <thead>
+                    <tr>
+                      <th>What’s included</th>
+                      {comparePackages.map((p) => (
+                        <th key={p.id} className={p.featured ? 'is-popular' : ''}>
+                          {p.self.charAt(0).toUpperCase() + p.self.slice(1)}
+                          <small>from {money(p.price)}</small>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {compareRows.map((row) => (
+                      <tr key={row.label}>
+                        <th scope="row">{row.label}</th>
+                        <td><CompareCell value={row.essential} /></td>
+                        <td className="is-popular"><CompareCell value={row.signature} /></td>
+                        <td><CompareCell value={row.elite} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {DETAIL_FAMILIES.filter((family) => family !== compareFamily).map((family) => (
+                <div key={family} className="package-family package-family-secondary">
                   <div className="package-family-head">
                     <p className="eyebrow">{DETAIL_FAMILY_COPY[family].kicker}</p>
                     <h3>{DETAIL_FAMILY_COPY[family].title}</h3>
                     <p>{DETAIL_FAMILY_COPY[family].blurb}</p>
                   </div>
-                  <div className="packages-grid">
+                  <div className="packages-grid packages-grid-compact">
                     {packagesForFamily(family).map((p) => (
-                      <FadeIn key={p.id} className={`package-card ${p.featured ? 'package-featured' : ''}`}>
-                        <span className="package-tag">{p.tag}</span>
-                        {p.featured && <div className="package-glow" />}
-                        <h3>{p.name}</h3>
-                        <div className="package-price">{money(p.price)}<sup>+</sup></div>
-                        <p className="package-minutes">About {p.minutes} minutes</p>
-                        <p>{p.desc}</p>
-                        <ul>
-                          {p.features.slice(0, 8).map(f => <li key={f}><Check size={12} /> {f}</li>)}
-                        </ul>
-                        <button
-                          className={p.featured ? 'btn-primary btn-full' : 'btn-dark btn-full'}
-                          onClick={() => { setSelectedServiceId(p.id); openTab('booking'); }}
-                        >
-                          Choose {p.name}
-                        </button>
-                      </FadeIn>
+                      <button
+                        key={p.id}
+                        className={`package-mini ${p.featured ? 'is-featured' : ''}`}
+                        onClick={() => goBookingWith(p.id)}
+                      >
+                        <span>{p.tag}</span>
+                        <strong>{p.name}</strong>
+                        <em>from {money(p.price)}</em>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -603,7 +728,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* PROTECTION TAB */}
+          {/* PROTECTION TAB — coating studio: process, warranty years, aftercare */}
           {activeTab === 'protection' && (
             <div className="tab-panel">
               <div className="protection-section">
@@ -614,22 +739,58 @@ export default function Home() {
                 <FadeIn className="protection-right" delay={150}>
                   <p className="eyebrow">LUXE PROTECTION</p>
                   <h2>More than shine.<br /><em>Built to protect.</em></h2>
-                  <p>Our ceramic coating service combines meticulous preparation with long-lasting hydrophobic protection. The result is deeper gloss, easier maintenance, and a finish built for the road.</p>
+                  <p>Ceramic coating is a process, not a product pour. We prep, coat, and cure — then you pick a 1-, 3-, or 5-year film the way a coating studio would explain warranty.</p>
                   <div className="protection-tiers">
                     {COATING_TIERS.map((tier) => (
-                      <div key={tier.label} className="protection-tier">
+                      <button
+                        type="button"
+                        key={tier.label}
+                        className={`protection-tier ${coatingYears === tier.years ? 'is-selected' : ''}`}
+                        onClick={() => setCoatingYears(tier.years)}
+                      >
+                        {tier.popular && <em className="tier-popular">Most chosen</em>}
                         <span>{tier.label}</span>
                         <strong>{money(tier.price)}<sup>+</sup></strong>
-                      </div>
+                        <small>{tier.suited}</small>
+                      </button>
                     ))}
                   </div>
+                  <ul className="protection-includes">
+                    {COATING_TIERS.find((tier) => tier.years === coatingYears)?.includes.map((item) => (
+                      <li key={item}><Check size={12} /> {item}</li>
+                    ))}
+                  </ul>
                   <button
                     className="btn-dark"
-                    onClick={() => { setSelectedServiceId('ceramic-coating'); setCoatingYears(1); openTab('booking'); }}
+                    onClick={() => goBookingWith('ceramic-coating', coatingYears)}
                   >
-                    Request Coating Quote
+                    Request {coatingYears}-year coating
                   </button>
                 </FadeIn>
+              </div>
+
+              <div className="coat-process">
+                <FadeIn className="center-heading">
+                  <p className="eyebrow">THE COATING PROCESS</p>
+                  <h2>Prep. Coat. Cure. Inspect.</h2>
+                </FadeIn>
+                <div className="coat-process-grid">
+                  {PROTECTION_PROCESS.map((item) => (
+                    <div key={item.step} className="coat-step">
+                      <span>{item.step}</span>
+                      <h3>{item.title}</h3>
+                      <p>{item.copy}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="coat-aftercare">
+                  <p className="eyebrow">AFTERCARE</p>
+                  <ul>
+                    {PROTECTION_AFTERCARE.map((item) => (
+                      <li key={item}><Check size={12} /> {item}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
               <div className="addons-section" style={{ background: 'var(--black)', padding: '80px 7vw', marginTop: '0' }}>
@@ -638,7 +799,7 @@ export default function Home() {
                     <p className="eyebrow eyebrow-dim">LUXE ADD-ONS</p>
                     <h2>Make it yours.</h2>
                   </div>
-                  <p>Build your service around what your vehicle actually needs.</p>
+                  <p>Build your service around what your vehicle actually needs. Selections carry into Book.</p>
                 </FadeIn>
                 <div className="addons-grid">
                   {ADD_ONS.map(([name, price], i) => (
@@ -657,36 +818,41 @@ export default function Home() {
             </div>
           )}
 
-          {/* GALLERY TAB */}
+          {/* GALLERY TAB — studio portfolio with filters and captions */}
           {activeTab === 'gallery' && (
             <div className="tab-panel">
               <FadeIn className="center-heading">
                 <p className="eyebrow">THE LUXE COLLECTION</p>
                 <h2>Made to be seen.</h2>
-                <p>Premium vehicles. Precise finishes. Attention to the details that change the whole look.</p>
+                <p>Filter by work type the way a ceramic house shows a portfolio — captions on every piece, not a random photo dump.</p>
               </FadeIn>
-              <div className="gallery-grid">
-                <div className="gallery-cell gallery-main">
-                  <img src={serviceByTitle('Luxe Signature').image} alt="Luxe signature detail" />
-                  <div className="gallery-caption">Signature Detail</div>
-                </div>
-                <div className="gallery-cell">
-                  <img src={serviceByTitle('Interior Signature').image} alt="Interior detail" />
-                  <div className="gallery-caption">Interior Care</div>
-                </div>
-                <div className="gallery-cell">
-                  <img src={serviceByTitle('Paint Correction').image} alt="Paint correction" />
-                  <div className="gallery-caption">Paint Correction</div>
-                </div>
-                <div className="gallery-cell gallery-wide">
-                  <img src={serviceByTitle('Ceramic').image} alt="Ceramic coating" />
-                  <div className="gallery-caption">Ceramic Coating</div>
-                </div>
-                <div className="gallery-cell">
-                  <img src={serviceByTitle('Exterior Signature').image} alt="Exterior detail" />
-                  <div className="gallery-caption">Exterior Detail</div>
-                </div>
+              <div className="filter-row filter-row-light">
+                {GALLERY_FILTERS.map((tag) => (
+                  <button
+                    key={tag}
+                    className={`filter-btn filter-btn-light ${galleryFilter === tag ? 'filter-active-light' : ''}`}
+                    onClick={() => setGalleryFilter(tag)}
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
+              {galleryPieces.length === 0 ? (
+                <p className="gallery-empty">No pieces in this filter yet. Try All or another finish.</p>
+              ) : (
+                <div className="gallery-grid">
+                  {galleryPieces.map((piece) => (
+                    <figure key={piece.id} className={`gallery-cell ${galleryFilter === 'All' && piece.layout === 'main' ? 'gallery-main' : ''} ${galleryFilter === 'All' && piece.layout === 'wide' ? 'gallery-wide' : ''}`}>
+                      <img src={piece.src} alt={piece.title} />
+                      <figcaption className="gallery-caption">
+                        <span>{piece.tag}</span>
+                        <strong>{piece.title}</strong>
+                        <em>{piece.caption}</em>
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
 
               <div className="luxury-banner" style={{ marginTop: '40px' }}>
                 <img src="https://images.pexels.com/photos/27968215/pexels-photo-27968215.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Luxury vehicle" />
@@ -701,21 +867,23 @@ export default function Home() {
             </div>
           )}
 
-          {/* MEMBERSHIP TAB */}
+          {/* MEMBERSHIP TAB — wash-club: recommended plan, billed monthly */}
           {activeTab === 'membership' && (
             <div className="tab-panel">
               <FadeIn className="center-heading">
                 <p className="eyebrow">LUXE MEMBERSHIP</p>
                 <h2>Don't wait until your car needs rescuing.</h2>
-                <p>Keep the finish you love with a maintenance plan built around consistency.</p>
+                <p>Billed monthly, pause anytime. Most members choose Luxe Plus — the maintenance club plan with priority scheduling.</p>
               </FadeIn>
               <div className="membership-grid">
                 {MEMBERSHIPS.map((plan, i) => (
-                  <FadeIn key={plan.name} delay={i * 100} className="membership-card">
+                  <FadeIn key={plan.name} delay={i * 80} className={`membership-card ${plan.recommended ? 'membership-recommended' : ''}`}>
+                    {plan.recommended && <span className="member-pick">Most members choose</span>}
                     <p className="eyebrow">{plan.name.toUpperCase()}</p>
                     <div className="member-price">
                       {money(plan.price)}<small>/month</small>
                     </div>
+                    <p className="member-billed">{plan.billed}</p>
                     <p>{plan.desc}</p>
                     <ul>
                       {plan.features.map(f => <li key={f}><Check size={11} /> {f}</li>)}
@@ -723,9 +891,32 @@ export default function Home() {
                     <div className="member-savings-badge">
                       <Shield size={12} /> {plan.savings}
                     </div>
-                    <a href={`${OS_URL}/login?mode=signup`} className="btn-outline btn-full">Join {plan.name}</a>
+                    <a href={`${OS_URL}/login?mode=signup`} className={plan.recommended ? 'btn-primary btn-full' : 'btn-outline btn-full'}>Join {plan.name}</a>
                   </FadeIn>
                 ))}
+              </div>
+
+              <div className="compare-wrap member-compare">
+                <table className="compare-table">
+                  <thead>
+                    <tr>
+                      <th>Plan comparison</th>
+                      <th>Monthly</th>
+                      <th className="is-popular">Plus</th>
+                      <th>VIP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MEMBERSHIP_COMPARE.map((row) => (
+                      <tr key={row.label}>
+                        <th scope="row">{row.label}</th>
+                        <td><CompareCell value={row.monthly} /></td>
+                        <td className="is-popular"><CompareCell value={row.plus} /></td>
+                        <td><CompareCell value={row.vip} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="process-section" style={{ marginTop: '40px' }}>
@@ -752,192 +943,278 @@ export default function Home() {
             </div>
           )}
 
-          {/* BOOKING TAB */}
+          {/* BOOKING TAB — Jobber-style stepper + sticky estimate */}
           {activeTab === 'booking' && (
-            <div className="tab-panel">
-              <div className="booking-section">
-                <FadeIn className="booking-left">
-                  <p className="eyebrow">BUILD YOUR LUXE SERVICE</p>
-                  <h2>Get an instant starting estimate.</h2>
-                  <p>Select a package, vehicle size, condition, and optional add-ons.</p>
-                  <div className="estimate-box">
-                    <div className="estimate-label">Estimated Starting Total</div>
-                    <div className="estimate-price">{money(estimated)}</div>
-                    <div className="estimate-note">Before custom-service adjustments</div>
-                    <div className="estimate-savings">
-                      Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
-                    </div>
-                  </div>
-                  <div className="portal-cta-box">
-                    <p>Want to track your service history and savings?</p>
-                    <a href={`${OS_URL}/login?mode=signup`} className="btn-outline">Create Your Portal Account</a>
-                  </div>
-                </FadeIn>
-
-                <FadeIn delay={150} className="booking-right">
-                  <form className="booking-form" onSubmit={handleSubmit}>
-                    <div className="form-group">
-                      <label>Package</label>
-                      {serviceSelectGroups().map((group) => (
-                        <div key={group.label} className="pkg-group">
-                          <span className="pkg-group-label">{group.label}</span>
-                          <div className="pkg-choices">
-                            {group.items.map((p) => (
-                              <button
-                                type="button"
-                                key={p.id}
-                                className={`pkg-choice ${selectedServiceId === p.id ? 'pkg-active' : ''}`}
-                                onClick={() => setSelectedServiceId(p.id)}
-                              >
-                                <span>{p.name}</span>
-                                <strong>{money(p.price)}+</strong>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {selectedServiceId === 'ceramic-coating' && (
-                      <div className="form-group">
-                        <label>Coating Term</label>
-                        <div className="pkg-choices">
-                          {COATING_TIERS.map((tier) => (
-                            <button
-                              type="button"
-                              key={tier.years}
-                              className={`pkg-choice ${coatingYears === tier.years ? 'pkg-active' : ''}`}
-                              onClick={() => setCoatingYears(tier.years)}
-                            >
-                              <span>{tier.label}</span>
-                              <strong>{money(tier.price)}+</strong>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Vehicle Size</label>
-                        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))}>
-                          {VEHICLE_SIZES.map((v, i) => (
-                            <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>Vehicle Condition</label>
-                        <select value={condition} onChange={e => setCondition(e.target.value)}>
-                          <option>Light</option>
-                          <option>Moderate</option>
-                          <option>Heavy</option>
-                          <option>Severe</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Optional Add-Ons</label>
-                      <div className="mini-addons">
-                        {ADD_ONS.map(([name, price], i) => (
+            <div className="tab-panel tab-panel-booking">
+              {formSent && bookingReceipt ? (
+                <div className="booking-confirm booking-confirm-page" role="status">
+                  <p className="eyebrow">REQUEST RECEIVED</p>
+                  <h3>We’ll confirm this window.</h3>
+                  <dl>
+                    <div><dt>Service</dt><dd>{bookingReceipt.service}</dd></div>
+                    <div><dt>When</dt><dd>{bookingReceipt.when}</dd></div>
+                    <div><dt>Where</dt><dd>{bookingReceipt.where}</dd></div>
+                    {bookingReceipt.id && <div><dt>Request</dt><dd>#{String(bookingReceipt.id).slice(0, 8)}</dd></div>}
+                  </dl>
+                  <p>Thanks {bookingReceipt.name.split(' ')[0]}. We hold this as a request until North Splash confirms. Watch email, or call 330-990-3956.</p>
+                  <button type="button" className="btn-outline" onClick={() => { setFormSent(false); setBookingReceipt(null); setBookingStep(1); }}>Book another vehicle</button>
+                </div>
+              ) : (
+                <div className="booking-studio">
+                  <div className="booking-flow">
+                    <FadeIn>
+                      <p className="eyebrow">REQUEST AN APPOINTMENT</p>
+                      <h2>Service, vehicle, window, then your details.</h2>
+                      <p className="booking-lead">The same four-step flow used by field-service bookers — with a live estimate that stays in view.</p>
+                    </FadeIn>
+                    <ol className="booking-steps">
+                      {BOOK_STEPS.map((step) => (
+                        <li key={step.n}>
                           <button
                             type="button"
-                            key={name}
-                            className={`mini-addon ${selectedAddOns.includes(i) ? 'mini-active' : ''}`}
-                            onClick={() => toggleAddOn(i)}
+                            className={`booking-step ${bookingStep === step.n ? 'is-active' : ''} ${bookingStep > step.n ? 'is-done' : ''}`}
+                            onClick={() => { setBookingError(''); setBookingStep(step.n); }}
                           >
-                            {name}<span>+${price}</span>
+                            <span>{step.n}</span>
+                            <strong>{step.label}</strong>
+                            <small>{step.hint}</small>
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Full Name</label>
-                        <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Phone Number</label>
-                        <input required type="tel" placeholder="919-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Email Address</label>
-                        <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Year / Make / Model</label>
-                        <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Preferred date</label>
-                        <select required value={formData.preferred_date} onChange={e => setFormData(p => ({...p, preferred_date: e.target.value}))}>
-                          {preferredDateOptions().map((d) => (
-                            <option key={d.value} value={d.value}>{d.label}</option>
+                        </li>
+                      ))}
+                    </ol>
+                    <form
+                      className="booking-form"
+                      onSubmit={(e) => {
+                        if (bookingStep < 4) {
+                          e.preventDefault();
+                          advanceBooking();
+                          return;
+                        }
+                        handleSubmit(e);
+                      }}
+                    >
+                      {bookingStep === 1 && (
+                        <div className="form-group">
+                          <label>Package</label>
+                          {serviceSelectGroups().map((group) => (
+                            <div key={group.label} className="pkg-group">
+                              <span className="pkg-group-label">{group.label}</span>
+                              <div className="pkg-choices">
+                                {group.items.map((p) => (
+                                  <button
+                                    type="button"
+                                    key={p.id}
+                                    className={`pkg-choice ${selectedServiceId === p.id ? 'pkg-active' : ''}`}
+                                    onClick={() => setSelectedServiceId(p.id)}
+                                  >
+                                    <span>{p.name}</span>
+                                    <strong>{money(p.price)}+</strong>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                           ))}
-                        </select>
+                          {selectedServiceId === 'ceramic-coating' && (
+                            <div className="form-group">
+                              <label>Coating Term</label>
+                              <div className="pkg-choices">
+                                {COATING_TIERS.map((tier) => (
+                                  <button
+                                    type="button"
+                                    key={tier.years}
+                                    className={`pkg-choice ${coatingYears === tier.years ? 'pkg-active' : ''}`}
+                                    onClick={() => setCoatingYears(tier.years)}
+                                  >
+                                    <span>{tier.label}</span>
+                                    <strong>{money(tier.price)}+</strong>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {bookingStep === 2 && (
+                        <>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Vehicle Size</label>
+                              <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))}>
+                                {VEHICLE_SIZES.map((v, i) => (
+                                  <option key={v.name} value={i}>{v.name}{v.extra ? ` (+$${v.extra})` : ''}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Vehicle Condition</label>
+                              <select value={condition} onChange={e => setCondition(e.target.value)}>
+                                <option>Light</option>
+                                <option>Moderate</option>
+                                <option>Heavy</option>
+                                <option>Severe</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Year / Make / Model</label>
+                            <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
+                          </div>
+                          <div className="form-group">
+                            <label>Optional Add-Ons</label>
+                            <div className="mini-addons">
+                              {ADD_ONS.map(([name, price], i) => (
+                                <button
+                                  type="button"
+                                  key={name}
+                                  className={`mini-addon ${selectedAddOns.includes(i) ? 'mini-active' : ''}`}
+                                  onClick={() => toggleAddOn(i)}
+                                >
+                                  {name}<span>+${price}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {bookingStep === 3 && (
+                        <>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Preferred date</label>
+                              <select value={formData.preferred_date} onChange={e => setFormData(p => ({...p, preferred_date: e.target.value}))}>
+                                {preferredDateOptions().map((d) => (
+                                  <option key={d.value} value={d.value}>{d.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Preferred time</label>
+                              <select value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
+                                {BOOK_SLOTS.map((slot) => <option key={slot}>{slot}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Service location</label>
+                            <input placeholder="Street, Raleigh NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
+                          </div>
+                        </>
+                      )}
+                      {bookingStep === 4 && (
+                        <>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Full Name</label>
+                              <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                            </div>
+                            <div className="form-group">
+                              <label>Phone Number</label>
+                              <input required type="tel" placeholder="919-000-0000" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Email Address</label>
+                            <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                          </div>
+                          <div className="form-group">
+                            <label>Additional Notes</label>
+                            <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                          </div>
+                        </>
+                      )}
+                      {bookingError && <div className="booking-error" role="alert">{bookingError}</div>}
+                      <div className="booking-nav">
+                        {bookingStep > 1 && (
+                          <button type="button" className="btn-outline" onClick={() => { setBookingError(''); setBookingStep((step) => (Math.max(1, step - 1) as BookingStep)); }}>
+                            Back
+                          </button>
+                        )}
+                        {bookingStep < 4 ? (
+                          <button type="button" className="btn-primary" onClick={advanceBooking}>
+                            Continue <ArrowRight size={14} />
+                          </button>
+                        ) : (
+                          <button type="submit" className="btn-primary btn-lg" disabled={bookingSending}>
+                            {bookingSending ? 'Sending…' : 'Request my appointment'}
+                          </button>
+                        )}
                       </div>
-                      <div className="form-group">
-                        <label>Preferred time</label>
-                        <select required value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
-                          {BOOK_SLOTS.map((slot) => <option key={slot}>{slot}</option>)}
-                        </select>
+                    </form>
+                  </div>
+
+                  <aside className="booking-summary">
+                    <div className="estimate-box">
+                      <div className="estimate-label">Live estimate</div>
+                      <div className="estimate-price">{money(estimated)}</div>
+                      <div className="estimate-note">Starting total · Raleigh, NC 27616</div>
+                      <ul className="estimate-lines">
+                        {estimateLines.map((line) => <li key={line}>{line}</li>)}
+                        <li>{preferredWhen}</li>
+                        {formData.address.trim() && <li>{formData.address.trim()}</li>}
+                      </ul>
+                      <div className="estimate-savings">
+                        Saves est. {money(Math.round(estimated * 3.8))} in long-term damage
                       </div>
                     </div>
-                    <div className="form-group">
-                      <label>Service location</label>
-                      <input required placeholder="Street, Raleigh NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
+                    <div className="portal-cta-box">
+                      <p>Want to track your service history and savings?</p>
+                      <a href={`${OS_URL}/login?mode=signup`} className="btn-outline">Create Your Portal Account</a>
                     </div>
-                    <div className="form-group">
-                      <label>Additional Notes</label>
-                      <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
-                    </div>
-                    {bookingError && <div className="booking-error" role="alert">{bookingError}</div>}
-                    {formSent && bookingReceipt ? (
-                      <div className="booking-confirm" role="status">
-                        <p className="eyebrow">REQUEST RECEIVED</p>
-                        <h3>We’ll confirm this window.</h3>
-                        <dl>
-                          <div><dt>Service</dt><dd>{bookingReceipt.service}</dd></div>
-                          <div><dt>When</dt><dd>{bookingReceipt.when}</dd></div>
-                          <div><dt>Where</dt><dd>{bookingReceipt.where}</dd></div>
-                          {bookingReceipt.id && <div><dt>Request</dt><dd>#{String(bookingReceipt.id).slice(0, 8)}</dd></div>}
-                        </dl>
-                        <p>Thanks {bookingReceipt.name.split(' ')[0]}. We hold this as a request until North Splash confirms. Watch email, or call 330-990-3956.</p>
-                        <button type="button" className="btn-outline" onClick={() => { setFormSent(false); setBookingReceipt(null); }}>Book another vehicle</button>
-                      </div>
-                    ) : (
-                      <button type="submit" className="btn-primary btn-full btn-lg" disabled={bookingSending}>
-                        {bookingSending ? 'Sending…' : 'Request my appointment'}
-                      </button>
-                    )}
-                  </form>
-                </FadeIn>
-              </div>
+                  </aside>
+                </div>
+              )}
             </div>
           )}
 
-          {/* FAQ TAB */}
+          {/* FAQ TAB — Stripe/Apple accordion with search */}
           {activeTab === 'faq' && (
             <div className="tab-panel">
-              <div className="faq-section" style={{ padding: '0 7vw', display: 'grid', gridTemplateColumns: '0.6fr 1.4fr', gap: '8vw' }}>
+              <div className="faq-studio">
                 <FadeIn className="faq-heading">
                   <p className="eyebrow">FAQ</p>
                   <h2>Questions, answered.</h2>
+                  <p>Search or filter, then open a row. Still stuck? Book a window or call 330-990-3956.</p>
+                  <label className="faq-search">
+                    <Search size={16} />
+                    <input
+                      type="search"
+                      placeholder="Search questions"
+                      value={faqQuery}
+                      onChange={(e) => { setFaqQuery(e.target.value); setOpenFaq(null); }}
+                    />
+                  </label>
+                  <div className="filter-row filter-row-light">
+                    {FAQ_GROUPS.map((group) => (
+                      <button
+                        key={group}
+                        className={`filter-btn filter-btn-light ${faqGroup === group ? 'filter-active-light' : ''}`}
+                        onClick={() => { setFaqGroup(group); setOpenFaq(null); }}
+                      >
+                        {group}
+                      </button>
+                    ))}
+                  </div>
                 </FadeIn>
                 <div className="faq-list">
-                  {FAQS.map(([q, a], i) => (
-                    <div key={q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                  {visibleFaqs.length === 0 && (
+                    <p className="gallery-empty">No matches. Try another word, or call 330-990-3956.</p>
+                  )}
+                  {visibleFaqs.map((item, i) => (
+                    <div key={item.q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
                       <button onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                        <span>{q}</span>
+                        <span><small>{item.group}</small>{item.q}</span>
                         {openFaq === i ? <Minus size={16} /> : <Plus size={16} />}
                       </button>
                       <div className="faq-answer">
-                        <p>{a}</p>
+                        <p>{item.a}</p>
                       </div>
                     </div>
                   ))}
+                  <div className="faq-cta">
+                    <p>Still have a question?</p>
+                    <button type="button" className="btn-primary" onClick={() => openTab('booking')}>Book a window</button>
+                    <a className="btn-outline" href="tel:3309903956">Call 330-990-3956</a>
+                  </div>
                 </div>
               </div>
             </div>

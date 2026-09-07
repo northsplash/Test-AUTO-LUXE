@@ -9,6 +9,7 @@ export {
   DETAIL_SELF_COPY,
   SPECIALTY_SERVICES,
   checklistForService,
+  compareRowsForFamily,
   findDetailPackage,
   minutesForService,
   packageForSelf,
@@ -32,6 +33,13 @@ const SERVICE_IMAGES: Record<string, { image: string; savingsMultiplier: number;
   'Luxe Ceramic Coating': { category: 'Ceramic', savingsMultiplier: 12, image: 'https://images.pexels.com/photos/7154635/pexels-photo-7154635.jpeg?auto=compress&cs=tinysrgb&h=650&w=940' },
 };
 
+const POPULAR_TITLES = new Set([
+  'Exterior Signature',
+  'Interior Signature',
+  'Luxe Signature',
+  'Luxe Ceramic Coating',
+]);
+
 export const SERVICES = [...DETAIL_PACKAGES, ...SPECIALTY_SERVICES].map((pkg) => {
   const meta = SERVICE_IMAGES[pkg.name] || { category: 'Detail', savingsMultiplier: 3, image: SERVICE_IMAGES['Luxe Signature'].image };
   return {
@@ -43,24 +51,87 @@ export const SERVICES = [...DETAIL_PACKAGES, ...SPECIALTY_SERVICES].map((pkg) =>
     items: pkg.features.slice(0, 6),
     image: meta.image,
     savingsMultiplier: meta.savingsMultiplier,
+    popular: POPULAR_TITLES.has(pkg.name),
   };
 });
+
+export function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  if (Number.isInteger(hours)) return `${hours} hr${hours === 1 ? '' : 's'}`;
+  const whole = Math.floor(hours);
+  const mins = minutes % 60;
+  if (mins === 30) return `${whole}.5 hrs`;
+  return `${whole} hr ${mins} min`;
+}
 
 /** All nine detail selves: Exterior, Interior, and Full vehicle × Essential / Signature / Elite. */
 export const PACKAGES = DETAIL_PACKAGES;
 
 export const DEFAULT_PACKAGE_ID = 'full-signature';
 
-export const COATING_TIERS: { label: string; years: 1 | 3 | 5; price: number }[] = [
-  { label: '1 YEAR', years: 1, price: 650 },
-  { label: '3 YEAR', years: 3, price: 950 },
-  { label: '5 YEAR', years: 5, price: 1250 },
+export const COATING_TIERS: {
+  label: string;
+  years: 1 | 3 | 5;
+  price: number;
+  suited: string;
+  popular?: boolean;
+  includes: string[];
+}[] = [
+  {
+    label: '1 YEAR',
+    years: 1,
+    price: 650,
+    suited: 'Daily drivers that get washed often',
+    includes: ['Single-layer coating', 'Full paint prep', '7-day cure care sheet'],
+  },
+  {
+    label: '3 YEAR',
+    years: 3,
+    price: 950,
+    suited: 'Most owners — the studio standard',
+    popular: true,
+    includes: ['Thicker film build', 'Corrected paint before coat', 'Priority recert visits'],
+  },
+  {
+    label: '5 YEAR',
+    years: 5,
+    price: 1250,
+    suited: 'Kept indoors or on a membership',
+    includes: ['Maximum film thickness', 'Inspection at 12 months', 'Written care plan'],
+  },
 ];
+
+export const PROTECTION_PROCESS = [
+  { step: '01', title: 'Inspect & map', copy: 'Paint thickness, swirl map, and a finish goal before any product hits the panel.' },
+  { step: '02', title: 'Prep the surface', copy: 'Wash, clay, and polish so the coating bonds to clean, corrected paint — not dirt.' },
+  { step: '03', title: 'Apply the coating', copy: 'Even coverage, flash, and leveling. 1-, 3-, or 5-year film depending on the tier.' },
+  { step: '04', title: 'Cure & inspect', copy: 'Controlled cure window, a panel walk, and a care sheet for the first seven days.' },
+];
+
+export const PROTECTION_AFTERCARE = [
+  'No automatic washes for 7 days',
+  'pH-neutral soap only',
+  'We reinspect if you stay on a membership',
+];
+
+export const GALLERY_PIECES: { id: string; tag: string; title: string; caption: string; src: string; layout?: 'main' | 'wide' }[] = [
+  { id: 'sig', tag: 'Full', title: 'Luxe Signature', caption: 'Full-vehicle Signature — paint, wheels, and cabin in one visit', src: SERVICE_IMAGES['Luxe Signature'].image, layout: 'main' },
+  { id: 'int', tag: 'Interior', title: 'Interior Signature', caption: 'Leather, panels, and glass reset to a quiet cabin', src: SERVICE_IMAGES['Interior Signature'].image },
+  { id: 'paint', tag: 'Paint', title: 'Paint Correction', caption: 'Machine polish to pull swirls and restore depth', src: SERVICE_IMAGES['Paint Correction'].image },
+  { id: 'ceramic', tag: 'Ceramic', title: 'Ceramic Coating', caption: 'Hydrophobic film after a full paint prep', src: SERVICE_IMAGES['Luxe Ceramic Coating'].image, layout: 'wide' },
+  { id: 'ext', tag: 'Exterior', title: 'Exterior Signature', caption: 'Decontaminated paint, dressed tires, sealed finish', src: SERVICE_IMAGES['Exterior Signature'].image },
+  { id: 'elite-int', tag: 'Interior', title: 'Interior Elite', caption: 'Extraction, leather treatment, and interior protection', src: SERVICE_IMAGES['Interior Elite'].image },
+  { id: 'elite-ext', tag: 'Exterior', title: 'Exterior Elite', caption: 'Paint enhancement pass and a panel-by-panel inspection', src: SERVICE_IMAGES['Exterior Elite'].image },
+];
+
+export const GALLERY_FILTERS = ['All', 'Exterior', 'Interior', 'Full', 'Paint', 'Ceramic'] as const;
 
 export const MEMBERSHIPS = [
   {
     name: 'Luxe Monthly',
     price: 99,
+    billed: 'Billed monthly · Pause anytime',
     desc: 'Consistent upkeep for drivers who like their vehicle ready every month.',
     features: ['Monthly exterior wash', 'Wheel cleaning', 'Tire dressing', 'Interior maintenance', 'Glass cleaning'],
     savings: 'Protects up to $800/yr in minor paint degradation',
@@ -68,6 +139,8 @@ export const MEMBERSHIPS = [
   {
     name: 'Luxe Plus',
     price: 149,
+    billed: 'Billed monthly · Most members choose this',
+    recommended: true,
     desc: 'A deeper maintenance rhythm with protection and priority scheduling.',
     features: ['Everything in Monthly', 'Interior deep clean every 3 months', 'Spray protection', 'Priority scheduling'],
     savings: 'Protects up to $1,500/yr in interior & exterior wear',
@@ -75,10 +148,21 @@ export const MEMBERSHIPS = [
   {
     name: 'Luxe VIP',
     price: 249,
+    billed: 'Billed monthly · Highest-touch plan',
     desc: 'Our highest-touch maintenance plan for vehicles that stay immaculate.',
     features: ['Monthly full maintenance detail', 'Interior protection', 'Exterior protection', 'Priority scheduling', 'Quarterly complimentary add-on'],
     savings: 'Protects up to $3,000/yr in total vehicle value',
   },
+];
+
+export const MEMBERSHIP_COMPARE = [
+  { label: 'Monthly exterior wash', monthly: true, plus: true, vip: true },
+  { label: 'Interior maintenance', monthly: true, plus: true, vip: true },
+  { label: 'Interior deep clean (quarterly)', monthly: false, plus: true, vip: true },
+  { label: 'Spray protection', monthly: false, plus: true, vip: true },
+  { label: 'Priority scheduling', monthly: false, plus: true, vip: true },
+  { label: 'Monthly full maintenance detail', monthly: false, plus: false, vip: true },
+  { label: 'Quarterly complimentary add-on', monthly: false, plus: false, vip: true },
 ];
 
 export const ADD_ONS: [string, number][] = [
@@ -101,15 +185,17 @@ export const VEHICLE_SIZES = [
   { name: 'Three-Row SUV / Large Truck', extra: 75 },
 ];
 
-export const FAQS = [
-  ['How long does a detail take?', 'Exterior and interior selves start around 90 minutes. A full Luxe Signature is about 3.5 hours, Luxe Elite about 5 hours, and paint correction or ceramic coating can take a full day.'],
-  ['Do you offer mobile detailing?', 'Yes. We come to you in Raleigh, NC 27616 and nearby Wake County when mobile service is available. A mobile service fee may apply depending on location and service requirements.'],
-  ['How much does detailing cost?', 'Exterior starts at $125, interior at $150, and a full vehicle at $175. Paint correction is $350. Ceramic coating is $650 / $950 / $1,250 for 1-, 3-, and 5-year tiers. Vehicle size, condition, and add-ons can change the final total.'],
-  ['Do you work on luxury and exotic vehicles?', 'Yes. Our Luxe Collection is designed for premium, luxury, and specialty vehicles. Specialty vehicles receive a custom quote.'],
-  ['Can you remove scratches?', 'Paint correction can improve many light-to-moderate paint imperfections. Deep scratches that have reached the underlying layers may require a different repair.'],
-  ['How long does ceramic coating last?', 'Protection duration depends on the coating selected, preparation, maintenance, storage, and driving conditions. Ask about our 1-, 3-, and 5-year options.'],
-  ['How do I schedule?', 'Pick a preferred date and time on the Book tab. We confirm that window by email or at 330-990-3956 before a detailer is dispatched.'],
-  ['What if my vehicle is extremely dirty?', 'No problem. We assess the vehicle before service. Excessive soil, heavy pet hair, biohazards, or unusually difficult conditions may require an additional charge.'],
+export const FAQ_GROUPS = ['All', 'Service', 'Pricing', 'Booking', 'Care'] as const;
+
+export const FAQS: { q: string; a: string; group: 'Service' | 'Pricing' | 'Booking' | 'Care' }[] = [
+  { group: 'Service', q: 'How long does a detail take?', a: 'Exterior and interior selves start around 90 minutes. A full Luxe Signature is about 3.5 hours, Luxe Elite about 5 hours, and paint correction or ceramic coating can take a full day.' },
+  { group: 'Service', q: 'Do you offer mobile detailing?', a: 'Yes. We come to you in Raleigh, NC 27616 and nearby Wake County when mobile service is available. A mobile service fee may apply depending on location and service requirements.' },
+  { group: 'Pricing', q: 'How much does detailing cost?', a: 'Exterior starts at $125, interior at $150, and a full vehicle at $175. Paint correction is $350. Ceramic coating is $650 / $950 / $1,250 for 1-, 3-, and 5-year tiers. Vehicle size, condition, and add-ons can change the final total.' },
+  { group: 'Service', q: 'Do you work on luxury and exotic vehicles?', a: 'Yes. Our Luxe Collection is designed for premium, luxury, and specialty vehicles. Specialty vehicles receive a custom quote.' },
+  { group: 'Care', q: 'Can you remove scratches?', a: 'Paint correction can improve many light-to-moderate paint imperfections. Deep scratches that have reached the underlying layers may require a different repair.' },
+  { group: 'Care', q: 'How long does ceramic coating last?', a: 'Protection duration depends on the coating selected, preparation, maintenance, storage, and driving conditions. Ask about our 1-, 3-, and 5-year options.' },
+  { group: 'Booking', q: 'How do I schedule?', a: 'Pick a preferred date and time on the Book tab. We confirm that window by email or at 330-990-3956 before a detailer is dispatched.' },
+  { group: 'Service', q: 'What if my vehicle is extremely dirty?', a: 'No problem. We assess the vehicle before service. Excessive soil, heavy pet hair, biohazards, or unusually difficult conditions may require an additional charge.' },
 ];
 
 export function money(value: number) {
