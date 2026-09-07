@@ -137,12 +137,28 @@ body { overflow-x: hidden; }
   .btn-white,
   .btn-ghost,
   .nav-book { min-height: 48px; }
+  .hero {
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .hero-content {
+    padding: calc(96px + env(safe-area-inset-top)) 20px 28px !important;
+  }
+  .hero-copy { margin-bottom: 18px !important; }
+  .hero-scroll {
+    position: relative !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    margin: 18px auto 8px !important;
+  }
   .hero-stats {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 12px !important;
     width: 100% !important;
-    margin-top: 40px !important;
+    margin-top: 22px !important;
   }
   .hero-stat,
   .hero-stat:first-child,
