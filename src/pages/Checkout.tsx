@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { sendCommunication } from '@/lib/communications';
+import { Navigation } from '@/components/Navigation';
 
 declare global {
   interface Window {
     Square?: any;
   }
 }
-
-const OS_URL=(import.meta.env.VITE_OS_URL||'https://app.northsplash.com').replace(/\/$/,'');
 
 export default function Checkout() {
   const cardRef = useRef<any>(null);
@@ -196,7 +195,7 @@ export default function Checkout() {
         throw subscriptionError;
       }
 
-      navigate('/portal', {
+      navigate('/', {
         replace: true,
         state: {
           paymentSuccess: true,
@@ -280,7 +279,7 @@ export default function Checkout() {
       }).catch(console.warn);
     }
 
-    navigate('/portal', {
+    navigate('/', {
       replace: true,
       state: {
         paymentSuccess: true,
@@ -301,25 +300,16 @@ export default function Checkout() {
 
   if (!checkout) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#090909',
-          color: '#fff',
-          padding: '40px 20px',
-        }}
-      >
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <h1>No checkout found</h1>
-
-          <p style={{ color: '#999' }}>
-            Return to your portal and start your booking again.
-          </p>
-
-          <a href={`${OS_URL}/portal`} style={{ color: '#c9a96e' }}>
-            Return to portal
-          </a>
-        </div>
+      <div className="luxe-checkout">
+        <Navigation />
+        <main className="luxe-checkout-main">
+          <section className="luxe-checkout-card">
+            <p className="eyebrow">SECURE CHECKOUT</p>
+            <h1>No booking to complete</h1>
+            <p>Start from the detailing site, choose a service, and we will bring you back here to pay.</p>
+            <Link className="btn-white" to="/#booking">Book a detail</Link>
+          </section>
+        </main>
       </div>
     );
   }
@@ -328,191 +318,50 @@ export default function Checkout() {
   const vehicleExtra = checkout.vehicleExtra ?? 0;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#090909',
-        color: '#ffffff',
-        padding: '40px 20px',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '760px',
-          margin: '0 auto',
-        }}
-      >
-        <a href={`${OS_URL}/portal`}
-          style={{
-            color: '#c9a96e',
-            textDecoration: 'none',
-          }}
-        >
-          ← Back to portal
-        </a>
-
-        <div
-          style={{
-            marginTop: '30px',
-            padding: '35px',
-            background: '#111111',
-            border: '1px solid #2a2a2a',
-            borderRadius: '16px',
-          }}
-        >
-          <div style={{ marginBottom: '30px' }}>
-            <div
-              style={{
-                fontSize: '13px',
-                letterSpacing: '3px',
-                color: '#c9a96e',
-              }}
-            >
-              NORTH SPLASH
-            </div>
-
-            <div
-              style={{
-                fontSize: '11px',
-                letterSpacing: '4px',
-                color: '#888',
-              }}
-            >
-              AUTO LUXE
-            </div>
-          </div>
-
-          <h1
-            style={{
-              fontSize: '32px',
-              marginBottom: '8px',
-            }}
-          >
-            Secure Checkout
-          </h1>
-
-          <p
-            style={{
-              color: '#999',
-              marginBottom: '30px',
-            }}
-          >
+    <div className="luxe-checkout">
+      <Navigation />
+      <main className="luxe-checkout-main">
+        <section className="luxe-checkout-card">
+          <img className="luxe-checkout-mark" src="/ns-auto-luxe-full-logo.png" alt="" />
+          <p className="eyebrow">NORTH SPLASH AUTO LUXE</p>
+          <h1>Secure Checkout</h1>
+          <p>
             {checkout.paymentType === 'membership'
               ? 'Complete your membership payment securely with Square.'
-              : 'Review your service and complete your payment securely with Square.'}
+              : 'Review your service and complete payment. Card details never touch our servers.'}
           </p>
 
-          {/* ORDER SUMMARY */}
-          <div
-            style={{
-              background: '#0b0b0b',
-              border: '1px solid #242424',
-              borderRadius: '12px',
-              padding: '22px',
-              marginBottom: '28px',
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Order Summary</h3>
-
-            <OrderRow
-              name={checkout.serviceName}
-              price={checkout.servicePrice}
-            />
-
+          <div className="luxe-checkout-summary">
+            <h3>Order summary</h3>
+            <OrderRow name={checkout.serviceName} price={checkout.servicePrice} />
             {vehicleExtra > 0 && (
-              <OrderRow
-                name={`${checkout.vehicleName} Vehicle Upgrade`}
-                price={vehicleExtra}
-              />
+              <OrderRow name={`${checkout.vehicleName} vehicle upgrade`} price={vehicleExtra} />
             )}
-
             {addOns.map(addOn => (
-              <OrderRow
-                key={addOn.name}
-                name={addOn.name}
-                price={addOn.price}
-              />
+              <OrderRow key={addOn.name} name={addOn.name} price={addOn.price} />
             ))}
-
-            <div
-              style={{
-                borderTop: '1px solid #333',
-                marginTop: '16px',
-                paddingTop: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '20px',
-                fontWeight: 700,
-              }}
-            >
+            <div className="luxe-checkout-total">
               <span>Total</span>
-
-              <span style={{ color: '#c9a96e' }}>
-                ${checkout.amount.toFixed(2)}
-              </span>
+              <strong>${checkout.amount.toFixed(2)}</strong>
             </div>
           </div>
 
-          {loading && (
-            <p style={{ color: '#aaa' }}>
-              Loading secure payment form...
-            </p>
-          )}
-
-          {error && (
-            <div
-              style={{
-                padding: '12px',
-                background: '#2a1111',
-                border: '1px solid #5a2020',
-                borderRadius: '8px',
-                marginBottom: '20px',
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <div
-            id="card-container"
-            style={{
-              marginBottom: '20px',
-            }}
-          />
+          {loading && <p className="luxe-checkout-loading">Loading the secure payment form…</p>}
+          {error && <div className="luxe-checkout-error" role="alert">{error}</div>}
+          <div id="card-container" className="luxe-checkout-card-box" />
 
           <button
+            className="btn-white btn-full"
+            type="button"
             onClick={handlePayment}
             disabled={loading || paying}
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: '#c9a96e',
-              border: 'none',
-              borderRadius: '8px',
-              color: '#090909',
-              fontSize: '15px',
-              fontWeight: 700,
-              cursor: paying ? 'not-allowed' : 'pointer',
-              opacity: paying ? 0.7 : 1,
-            }}
           >
-            {paying
-              ? 'Processing Payment...'
-              : `Pay $${checkout.amount.toFixed(2)}`}
+            {paying ? 'Processing payment…' : `Pay $${checkout.amount.toFixed(2)}`}
           </button>
-
-          <p
-            style={{
-              marginTop: '18px',
-              textAlign: 'center',
-              color: '#777',
-              fontSize: '12px',
-            }}
-          >
-            Secure payment processing powered by Square.
-          </p>
-        </div>
-      </div>
+          <p className="luxe-checkout-fine">Secure payment processing powered by Square.</p>
+          <Link className="luxe-checkout-back" to="/">Back to the site</Link>
+        </section>
+      </main>
     </div>
   );
 }
@@ -525,15 +374,7 @@ function OrderRow({
   price: number;
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        gap: '20px',
-        padding: '9px 0',
-        color: '#ddd',
-      }}
-    >
+    <div className="luxe-checkout-row">
       <span>{name}</span>
       <strong>${price.toFixed(2)}</strong>
     </div>

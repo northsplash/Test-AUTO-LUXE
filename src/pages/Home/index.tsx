@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ChevronDown, Check, Plus, Minus, ArrowRight, Sparkles, Shield, Star, Zap,
   Car, Package, Gem, Camera, Crown, Calendar, HelpCircle, ArrowLeft
@@ -71,6 +72,8 @@ function FadeIn({
 }
 
 export default function Home() {
+  const location = useLocation();
+  const [paidNotice, setPaidNotice] = useState(() => Boolean((location.state as { paymentSuccess?: boolean } | null)?.paymentSuccess));
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [serviceFilter, setServiceFilter] = useState('All');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -195,6 +198,13 @@ export default function Home() {
       <ScrollProgress />
       <CursorGlow />
       <Navigation onScrollTo={scrollTo} isHomePage />
+      {paidNotice && (
+        <div className="luxe-paid-banner" role="status">
+          <strong>Payment received.</strong>
+          <span>We will confirm your appointment shortly.</span>
+          <button type="button" onClick={() => setPaidNotice(false)}>Dismiss</button>
+        </div>
+      )}
 
       {/* HERO */}
       <section id="home" className="hero">
@@ -203,8 +213,10 @@ export default function Home() {
           style={{ transform: `translate3d(0, ${heroShift}px, 0)` }}
         >
           <img
-            src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-            alt="Luxury vehicle"
+            src="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900"
+            srcSet="https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=800 800w, https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=1600 1600w, https://images.pexels.com/photos/33345481/pexels-photo-33345481.jpeg?auto=compress&cs=tinysrgb&w=2400 2400w"
+            sizes="100vw"
+            alt="Luxury vehicle after a North Splash Auto Luxe detail"
           />
           <div className="hero-gradient" />
           <div className="hero-noise" />
