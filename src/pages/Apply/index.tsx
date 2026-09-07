@@ -134,7 +134,7 @@ export default function Apply() {
           <p className="eyebrow">CAREERS · NORTH CAROLINA</p>
           <h1>Apply to work at North Splash.</h1>
           <p>Pick a seat, answer in your own words, send it. No account. Hiring reads every application.</p>
-          <span className="apply-market"><MapPin size={14} /> {MARKET.region} · {MARKET.phone}</span>
+          <span className="apply-market"><MapPin size={14} /> {MARKET.region} · <a href={`tel:${MARKET.phoneTel}`}>{MARKET.phone}</a></span>
         </section>
 
         <section className="apply-panel">

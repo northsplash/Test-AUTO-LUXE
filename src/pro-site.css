@@ -259,12 +259,30 @@ body { overflow-x: hidden; }
   .apply-intro > p { margin: 0; font-size: 14px; }
   .apply-market { margin-top: 10px !important; }
   .apply-panel { padding: 18px 16px !important; }
-  .apply-roles h2 { font-size: 22px !important; margin: 0 0 8px !important; }
+  .apply-roles h2 { font-size: 20px !important; margin: 0 0 6px !important; }
+  .apply-fit-lead { display: none; }
+  .apply-roles ul,
+  .apply-roles > button.active ul,
+  .apply-roles em {
+    display: none !important;
+  }
+  .apply-roles > button {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+  }
+  .apply-roles small { margin: 2px 0 0 !important; }
+  .apply-market a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
   .apply-actions {
     position: sticky;
     bottom: 8px;
+    z-index: 3;
     background: #fff;
     padding-top: 10px;
+    box-shadow: 0 -12px 20px #fff;
   }
   .apply-steps {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
