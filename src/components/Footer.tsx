@@ -60,7 +60,7 @@ export function Footer({ onScrollTo }: Props) {
         </div>
       </div>
 
-      {pathname !== '/apply' && (
+      {pathname !== '/apply' && pathname !== '/checkout' && (
         <div className="footer-apply">
           <div>
             <strong>Hiring in North Carolina</strong>

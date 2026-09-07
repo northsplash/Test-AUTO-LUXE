@@ -59,6 +59,7 @@ export function Navigation({ onScrollTo, isHomePage }: Props) {
         ))}
         <div className="mobile-menu-actions">
           <a href={`${OS_URL}/login`}>Portal Login</a>
+          <Link to="/apply" onClick={() => setMenuOpen(false)}>Apply for a job</Link>
           <button type="button" onClick={() => go('booking')}>Book Your Detail</button>
         </div>
       </nav>

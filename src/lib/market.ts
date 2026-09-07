@@ -5,8 +5,18 @@ export const MARKET = {
   phone: '330-990-3956',
   phoneTel: '3309903956',
   email: 'support@northsplash.com',
-  phonePlaceholder: '919-000-0000',
+  phonePlaceholder: '336-201-4400',
 } as const;
+
+export function phoneDigits(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+export function looksFakePhone(value: string) {
+  const digits = phoneDigits(value);
+  if (digits.length < 10) return true;
+  return /^(\d)\1+$/.test(digits);
+}
 
 export const HERO_COPY =
   'Mobile detailing all over North Carolina. Precision care, paint enhancement, ceramic protection, and concierge service at your driveway.';

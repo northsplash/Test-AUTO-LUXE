@@ -19,7 +19,7 @@ import {
 import type { DetailFamily } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
-import { HERO_COPY, MARKET } from '@/lib/market';
+import { HERO_COPY, MARKET, looksFakePhone } from '@/lib/market';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
 const BOOK_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:30 PM', '4:00 PM'] as const;
@@ -296,8 +296,8 @@ export default function Home() {
       setBookingStep(4);
       return;
     }
-    if (formData.phone.replace(/\D/g, '').length < 10) {
-      setBookingError('Enter a 10-digit phone number so we can confirm this window.');
+    if (looksFakePhone(formData.phone)) {
+      setBookingError('Enter a real 10-digit phone number so we can confirm this window.');
       setBookingStep(4);
       return;
     }
@@ -428,7 +428,7 @@ export default function Home() {
             <div className="hero-stat-divider" />
             <div className="hero-stat">
               <strong>NC</strong>
-              <span>All Over The State</span>
+              <span>Statewide</span>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
@@ -535,7 +535,7 @@ export default function Home() {
             {/* Services teaser */}
             <TiltCard className="teaser-card" delay={0}>
               <div className="teaser-img">
-                <img src={serviceByTitle('Exterior Essential').image} alt="Services" />
+                <img src={serviceByTitle('Exterior Essential').image} alt="Exterior wash and sealant on a driveway" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Car size={22} /></div>
               </div>
@@ -552,7 +552,7 @@ export default function Home() {
             {/* Packages teaser */}
             <TiltCard className="teaser-card" delay={80}>
               <div className="teaser-img">
-                <img src={serviceByTitle('Luxe Signature').image} alt="Packages" />
+                <img src={serviceByTitle('Luxe Signature').image} alt="Full-vehicle Signature detail" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Package size={22} /></div>
               </div>
@@ -569,7 +569,7 @@ export default function Home() {
             {/* Protection teaser */}
             <TiltCard className="teaser-card" delay={160}>
               <div className="teaser-img">
-                <img src={serviceByTitle('Ceramic').image} alt="Protection" />
+                <img src={serviceByTitle('Ceramic').image} alt="Ceramic coating on paint" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Gem size={22} /></div>
               </div>
@@ -586,7 +586,7 @@ export default function Home() {
             {/* Gallery teaser */}
             <TiltCard className="teaser-card" delay={0}>
               <div className="teaser-img">
-                <img src={serviceByTitle('Paint Correction').image} alt="Gallery" />
+                <img src={serviceByTitle('Paint Correction').image} alt="Paint correction finish" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Camera size={22} /></div>
               </div>
@@ -603,7 +603,7 @@ export default function Home() {
             {/* Membership teaser */}
             <TiltCard className="teaser-card" delay={80}>
               <div className="teaser-img">
-                <img src={serviceByTitle('Interior Signature').image} alt="Membership" />
+                <img src={serviceByTitle('Interior Signature').image} alt="Interior Signature cabin reset" />
                 <div className="teaser-overlay" />
                 <div className="teaser-icon"><Crown size={22} /></div>
               </div>
@@ -916,7 +916,7 @@ export default function Home() {
                   <p className="eyebrow eyebrow-glow">THE LUXE COLLECTION</p>
                   <h2>Luxury vehicles<br />deserve luxury care.</h2>
                   <p>Specialized service for premium, exotic, collector, and specialty vehicles.</p>
-                  <button className="btn-ghost" onClick={() => scrollTo('contact')}>Request a Custom Quote</button>
+                  <button className="btn-ghost" onClick={() => openTab('booking')}>Request a custom quote</button>
                 </FadeIn>
               </div>
             </div>
@@ -1146,9 +1146,13 @@ export default function Home() {
                             </div>
                             <div className="form-group">
                               <label>Preferred time</label>
-                              <select value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
-                                {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
-                              </select>
+                              {timeSlots.length ? (
+                                <select value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
+                                  {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
+                                </select>
+                              ) : (
+                                <p className="booking-slot-empty">No windows left on this date. Pick another day — we confirm by phone at {MARKET.phone}.</p>
+                              )}
                             </div>
                           </div>
                           <div className="form-group">
@@ -1258,7 +1262,11 @@ export default function Home() {
                   )}
                   {visibleFaqs.map((item, i) => (
                     <div key={item.q} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
-                      <button onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                      <button
+                        type="button"
+                        aria-expanded={openFaq === i}
+                        onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                      >
                         <span><small>{item.group}</small>{item.q}</span>
                         {openFaq === i ? <Minus size={16} /> : <Plus size={16} />}
                       </button>

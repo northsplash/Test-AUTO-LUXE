@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Briefcase, Check, MapPin } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
-import { MARKET } from '@/lib/market';
+import { MARKET, looksFakePhone } from '@/lib/market';
 import {
   OPEN_ROLES,
   emptyApplication,
@@ -48,13 +48,12 @@ export default function Apply() {
   const [done, setDone] = useState<{ duplicate: boolean } | null>(null);
   const [form, setForm] = useState<JobApplication>(() => emptyApplication(validRole(params.get('role'))));
   const role = OPEN_ROLES.find((r) => r.id === form.position)!;
-  const phoneDigits = form.phone.replace(/\D/g, '');
 
   const patch = (next: Partial<JobApplication>) => setForm((p) => ({ ...p, ...next }));
 
   const stepError = useMemo(() => {
     if (step === 1 && !form.position) return 'Choose a role to continue.';
-    if (step >= 2 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || new Set(phoneDigits).size < 2 || form.city.trim().length < 2)) {
+    if (step >= 2 && (form.full_name.trim().length < 2 || !form.email.includes('@') || looksFakePhone(form.phone) || form.city.trim().length < 2)) {
       return 'Name, a valid email, a real 10-digit phone, and your North Carolina city are required.';
     }
     if (step >= 3) {
@@ -66,7 +65,7 @@ export default function Apply() {
       if (form.why.trim().length < 20) return `Answer “${role.whyPrompt}” in at least a couple of sentences.`;
     }
     return '';
-  }, [step, form, phoneDigits.length, role.fieldRole, role.whyPrompt]);
+  }, [step, form, role.fieldRole, role.whyPrompt]);
 
   const goNext = () => {
     if (stepError) {
@@ -81,7 +80,7 @@ export default function Apply() {
     e.preventDefault();
     if (stepError) {
       setError(stepError);
-      if (step === 4 && (form.full_name.trim().length < 2 || !form.email.includes('@') || phoneDigits.length < 10 || new Set(phoneDigits).size < 2 || form.city.trim().length < 2)) setStep(2);
+      if (step === 4 && (form.full_name.trim().length < 2 || !form.email.includes('@') || looksFakePhone(form.phone) || form.city.trim().length < 2)) setStep(2);
       else if (step === 4) setStep(3);
       return;
     }
@@ -202,7 +201,7 @@ export default function Apply() {
                     </label>
                     <label className="form-group">
                       <span>Earliest start date</span>
-                      <input type="date" value={form.start_when} onChange={(e) => patch({ start_when: e.target.value })} />
+                      <input type="date" min={new Date().toISOString().slice(0, 10)} value={form.start_when} onChange={(e) => patch({ start_when: e.target.value })} />
                     </label>
                   </div>
                   <div className="form-row">

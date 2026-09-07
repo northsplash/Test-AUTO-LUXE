@@ -330,7 +330,7 @@ export default function Checkout() {
       <Navigation />
       <main id="main" className="luxe-checkout-main">
         <section className="luxe-checkout-card">
-          <img className="luxe-checkout-mark" src="/ns-auto-luxe-full-logo.png" alt="" />
+          <img className="luxe-checkout-mark" src="/ns-auto-luxe-full-logo.png" alt="North Splash Auto Luxe" />
           <p className="eyebrow">NORTH SPLASH AUTO LUXE</p>
           <h1>Secure Checkout</h1>
           <p>
