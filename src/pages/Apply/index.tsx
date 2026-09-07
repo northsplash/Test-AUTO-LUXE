@@ -240,7 +240,7 @@ export default function Apply() {
                   </div>
                   <label className="form-group">
                     <span>{role.experiencePrompt}</span>
-                    <textarea rows={5} placeholder={role.experiencePlaceholder} value={form.experience_detail} onChange={(e) => patch({ experience_detail: e.target.value })} />
+                    <textarea rows={4} placeholder={role.experiencePlaceholder} value={form.experience_detail} onChange={(e) => patch({ experience_detail: e.target.value })} />
                   </label>
                   {role.fieldRole && (
                     <label className="apply-check">
@@ -253,7 +253,7 @@ export default function Apply() {
                   <label className="apply-check"><input type="checkbox" checked={form.authorized_to_work} onChange={(e) => patch({ authorized_to_work: e.target.checked })} /><span>I am authorized to work in the United States.</span></label>
                   <label className="form-group">
                     <span>{role.whyPrompt}</span>
-                    <textarea rows={5} placeholder={role.whyPlaceholder} value={form.why} onChange={(e) => patch({ why: e.target.value })} />
+                    <textarea rows={4} placeholder={role.whyPlaceholder} value={form.why} onChange={(e) => patch({ why: e.target.value })} />
                   </label>
                   <label className="apply-honeypot" aria-hidden="true">
                     Company website

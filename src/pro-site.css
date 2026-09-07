@@ -291,6 +291,12 @@ body { overflow-x: hidden; }
     margin-bottom: 16px !important;
   }
   .apply-steps li { min-width: 0; text-align: center; }
+  .apply-fit-list { display: none !important; }
+  .apply-fields h2 { font-size: 22px !important; margin: 0 0 8px !important; }
+  .apply-fields textarea {
+    min-height: 96px !important;
+    height: 96px !important;
+  }
 }
 
 @media (max-width: 430px) {
