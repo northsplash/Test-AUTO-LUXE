@@ -41,8 +41,25 @@ export default function Checkout() {
     | undefined;
 
   useEffect(() => {
+    if (!checkout) {
+      setLoading(false);
+      return;
+    }
+
     const loadSquare = async () => {
       try {
+        const applicationId =
+          import.meta.env.VITE_SQUARE_APPLICATION_ID;
+
+        const locationId =
+          import.meta.env.VITE_SQUARE_LOCATION_ID;
+
+        if (!applicationId || !locationId) {
+          setError('Card checkout is not connected yet. Book from the site and we will confirm by phone at 330-990-3956.');
+          setLoading(false);
+          return;
+        }
+
         let script = document.querySelector(
           'script[src="https://web.squarecdn.com/v1/square.js"]'
         ) as HTMLScriptElement | null;
@@ -67,16 +84,6 @@ export default function Checkout() {
           });
         }
 
-        const applicationId =
-          import.meta.env.VITE_SQUARE_APPLICATION_ID;
-
-        const locationId =
-          import.meta.env.VITE_SQUARE_LOCATION_ID;
-
-        if (!applicationId || !locationId) {
-          throw new Error('Square checkout settings are missing.');
-        }
-
         if (!window.Square) {
           throw new Error('Square payments could not initialize.');
         }
@@ -93,8 +100,6 @@ export default function Checkout() {
         cardRef.current = card;
         setLoading(false);
       } catch (err) {
-        console.error(err);
-
         setError(
           err instanceof Error
             ? err.message
@@ -110,7 +115,7 @@ export default function Checkout() {
     return () => {
       cardRef.current?.destroy?.();
     };
-  }, []);
+  }, [checkout]);
 
   const handlePayment = async () => {
   if (!checkout) {
