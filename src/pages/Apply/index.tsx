@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Briefcase, Check, MapPin } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
@@ -29,6 +29,8 @@ const STEPS = [
   { n: 4, label: 'Review' },
 ] as const;
 
+const DRAFT_KEY = 'ns-apply-draft-v1';
+
 function validRole(value: string | null): RoleId {
   return OPEN_ROLES.some((r) => r.id === value) ? value as RoleId : 'detailer';
 }
@@ -42,14 +44,37 @@ function formatStartDate(value: string) {
 
 export default function Apply() {
   const [params] = useSearchParams();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ duplicate: boolean } | null>(null);
-  const [form, setForm] = useState<JobApplication>(() => emptyApplication(validRole(params.get('role'))));
+  const [form, setForm] = useState<JobApplication>(() => {
+    const role = validRole(params.get('role'));
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<JobApplication>;
+        return { ...emptyApplication(validRole(saved.position || role)), ...saved, position: validRole(params.get('role') || saved.position || role) };
+      }
+    } catch { /* ignore */ }
+    return emptyApplication(role);
+  });
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    if (params.get('role')) return 1;
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return 1;
+      const saved = JSON.parse(raw) as { step?: number };
+      return saved.step === 2 || saved.step === 3 || saved.step === 4 ? saved.step : 1;
+    } catch { return 1; }
+  });
   const role = OPEN_ROLES.find((r) => r.id === form.position)!;
 
   const patch = (next: Partial<JobApplication>) => setForm((p) => ({ ...p, ...next }));
+
+  useEffect(() => {
+    if (done) return;
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, step })); } catch { /* ignore */ }
+  }, [form, step, done]);
 
   const stepError = useMemo(() => {
     if (step === 1 && !form.position) return 'Choose a role to continue.';
@@ -89,6 +114,7 @@ export default function Apply() {
     try {
       const result = await submitJobApplication(form);
       setDone({ duplicate: result.duplicate });
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Unable to send your application.';
       setError(/row-level security|permission denied|42501|failed to fetch|failed to send|edge function|functionshttperror|non-2xx/i.test(raw)
@@ -122,7 +148,7 @@ export default function Apply() {
               <p>
                 {done.duplicate
                   ? `A hiring manager already has your ${role.title} application from this week. If anything changed, call ${MARKET.phone}.`
-                  : `Thanks, ${form.full_name.split(' ')[0]}. Your ${role.title} application is on the North Splash hiring board. We review new applications and reach out if there is a next step.`}
+                  : `Thanks, ${form.full_name.split(' ')[0]}. Your ${role.title} application is on the Owner hiring board as Website, with the answers you just wrote. We review new applications by hand and reach out if there is a next step.`}
               </p>
               <dl>
                 <div><dt>Role</dt><dd>{role.title}</dd></div>

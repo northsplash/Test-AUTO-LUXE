@@ -731,7 +731,8 @@ body.site-menu-open { overflow: hidden; }
 .apply-roles strong, .apply-roles small, .apply-roles em { display: block; }
 .apply-roles small { opacity: .7; margin: 4px 0 8px; font-size: 12px; letter-spacing: .02em; }
 .apply-roles em { font-style: normal; font-size: 14px; line-height: 1.55; opacity: .9; }
-.apply-roles ul { list-style: none; padding: 10px 0 0; margin: 10px 0 0; display: grid; gap: 6px; border-top: 1px solid rgba(17,17,17,.08); }
+.apply-roles ul { display: none; list-style: none; padding: 10px 0 0; margin: 10px 0 0; gap: 6px; border-top: 1px solid rgba(17,17,17,.08); }
+.apply-roles > button.active ul { display: grid; }
 .apply-roles > button.active ul { border-top-color: rgba(255,255,255,.16); }
 .apply-roles ul li { font-size: 13px; line-height: 1.45; opacity: .82; padding-left: 12px; position: relative; }
 .apply-roles ul li::before { content: '–'; position: absolute; left: 0; opacity: .55; }
