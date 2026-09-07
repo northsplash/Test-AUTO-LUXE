@@ -108,7 +108,7 @@ export const FAQS = [
   ['Do you work on luxury and exotic vehicles?', 'Yes. Our Luxe Collection is designed for premium, luxury, and specialty vehicles. Specialty vehicles receive a custom quote.'],
   ['Can you remove scratches?', 'Paint correction can improve many light-to-moderate paint imperfections. Deep scratches that have reached the underlying layers may require a different repair.'],
   ['How long does ceramic coating last?', 'Protection duration depends on the coating selected, preparation, maintenance, storage, and driving conditions. Ask about our 1-, 3-, and 5-year options.'],
-  ['Do you require a deposit?', 'A deposit can be requested to reserve certain appointments. The exact requirement can be confirmed when your booking system is connected.'],
+  ['How do I schedule?', 'Pick a preferred date and time on the Book tab. We confirm that window by email or at 330-990-3956 before a detailer is dispatched.'],
   ['What if my vehicle is extremely dirty?', 'No problem. We assess the vehicle before service. Excessive soil, heavy pet hair, biohazards, or unusually difficult conditions may require an additional charge.'],
 ];
 

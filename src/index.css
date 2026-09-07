@@ -563,6 +563,19 @@ h4 { font-size: 16px; }
 .mini-active { background: var(--ink) !important; color: var(--white) !important; border-color: var(--ink) !important; }
 .mini-active span { opacity: .6; }
 .form-success { font-size: 12px; color: var(--green); padding: 10px; background: rgba(45,106,79,.08); }
+.booking-confirm {
+  border: 1px solid #d8c9b6;
+  background: #f7f1e8;
+  padding: 22px;
+  display: grid;
+  gap: 12px;
+}
+.booking-confirm h3 { margin: 0; font-size: 22px; }
+.booking-confirm dl { margin: 0; display: grid; gap: 10px; }
+.booking-confirm dl div { display: grid; grid-template-columns: 88px 1fr; gap: 10px; font-size: 14px; }
+.booking-confirm dt { color: #7a6d60; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 800; padding-top: 3px; }
+.booking-confirm dd { margin: 0; }
+.booking-confirm p { margin: 0; color: #5c534a; font-size: 14px; }
 
 /* ─── FAQ ─────────────────────────────────────────────────── */
 .faq-section { display: grid; grid-template-columns: .6fr 1.4fr; gap: 8vw; padding: 110px 7vw; }

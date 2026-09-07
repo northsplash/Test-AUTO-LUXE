@@ -17,6 +17,41 @@ import { supabase } from '@/lib/supabase';
 import { trackPageView } from '@/lib/auth';
 
 const OS_URL = 'https://ns-auto-luxe-os.vercel.app';
+const BOOK_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:30 PM', '4:00 PM'] as const;
+
+function localYmd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function preferredDateOptions() {
+  const start = new Date();
+  return Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return {
+      value: localYmd(d),
+      label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+    };
+  });
+}
+
+function tomorrowYmd() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return localYmd(d);
+}
+
+function toScheduledIso(date: string, time: string) {
+  const m = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m || !date) return '';
+  let hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && hour < 12) hour += 12;
+  if (ap === 'AM' && hour === 12) hour = 0;
+  const next = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+  return Number.isNaN(next.getTime()) ? '' : next.toISOString();
+}
 const SERVICE_FILTERS = ['All', 'Exterior', 'Interior', 'Full', 'Paint', 'Ceramic'] as const;
 const FILTER_CATEGORY: Record<string, string | null> = {
   All: null,
@@ -85,7 +120,8 @@ export default function Home() {
   const [formSent, setFormSent] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSending, setBookingSending] = useState(false);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', address: '', notes: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', vehicle: '', address: '', notes: '', preferred_date: tomorrowYmd(), preferred_time: '10:00 AM' });
+  const [bookingReceipt, setBookingReceipt] = useState<{ id?: string; service: string; when: string; where: string; name: string } | null>(null);
   const [heroVisible, setHeroVisible] = useState(false);
   const [counterVal, setCounterVal] = useState(0);
   const tabRef = useRef<HTMLDivElement>(null);
@@ -154,9 +190,14 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSent) return;
     setBookingError('');
     setBookingSending(true);
     try {
+      const where = formData.address.trim() || 'Raleigh, NC 27616';
+      const dateOptions = preferredDateOptions();
+      const whenLabel = `${dateOptions.find((d) => d.value === formData.preferred_date)?.label || formData.preferred_date} · ${formData.preferred_time}`;
+      const windowNote = `Preferred window: ${whenLabel}`;
       const { data, error } = await supabase.functions.invoke('public-booking', {
         body: {
           customer_name: formData.name.trim(),
@@ -168,14 +209,24 @@ export default function Home() {
             : selectedBookable.name,
           add_ons: selectedAddOns.map(i => ADD_ONS[i][0]),
           vehicle_info: formData.vehicle.trim(),
-          service_address: formData.address.trim() || 'Raleigh, NC 27616',
+          service_address: where,
+          preferred_date: formData.preferred_date,
+          preferred_time: formData.preferred_time,
+          scheduled_at: toScheduledIso(formData.preferred_date, formData.preferred_time) || null,
           price: estimated,
-          notes: [formData.address.trim() && `Service location: ${formData.address.trim()}`, formData.notes.trim()].filter(Boolean).join('\n'),
+          notes: [windowNote, formData.address.trim() && `Service location: ${where}`, formData.notes.trim()].filter(Boolean).join('\n'),
           source_channel: 'northsplash.com',
         },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Unable to submit booking.');
+      setBookingReceipt({
+        id: data.appointment_id,
+        name: formData.name.trim(),
+        service: selectedBookable.name,
+        when: whenLabel,
+        where,
+      });
       setFormSent(true);
     } catch (err: any) {
       setBookingError(err?.message || 'Unable to submit your booking right now. Please try again.');
@@ -202,7 +253,7 @@ export default function Home() {
       {paidNotice && (
         <div className="luxe-paid-banner" role="status">
           <strong>Payment received.</strong>
-          <span>We will confirm your appointment shortly.</span>
+          <span>Your appointment is confirmed. We’ll see you at the scheduled window.</span>
           <button type="button" onClick={() => setPaidNotice(false)}>Dismiss</button>
         </div>
       )}
@@ -686,7 +737,7 @@ export default function Home() {
                   {[
                     ['01', 'Choose Your Service', 'Select the package or service your vehicle needs.'],
                     ['02', 'Tell Us About Your Vehicle', 'Share the year, make, model, size, and condition.'],
-                    ['03', 'Schedule', 'Choose your preferred appointment date and time.'],
+                    ['03', 'Schedule', 'Pick a preferred date and time. We confirm that window by phone or email.'],
                     ['04', 'Experience Auto Luxe', 'Drop off or request concierge service.'],
                     ['05', 'Drive Away Different', 'Leave with a vehicle ready to be noticed.'],
                   ].map(([num, title, desc], i) => (
@@ -818,20 +869,48 @@ export default function Home() {
                         <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
                       </div>
                     </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Preferred date</label>
+                        <select required value={formData.preferred_date} onChange={e => setFormData(p => ({...p, preferred_date: e.target.value}))}>
+                          {preferredDateOptions().map((d) => (
+                            <option key={d.value} value={d.value}>{d.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Preferred time</label>
+                        <select required value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
+                          {BOOK_SLOTS.map((slot) => <option key={slot}>{slot}</option>)}
+                        </select>
+                      </div>
+                    </div>
                     <div className="form-group">
                       <label>Service location</label>
-                      <input placeholder="Raleigh, NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
+                      <input required placeholder="Street, Raleigh NC 27616" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
                     </div>
                     <div className="form-group">
                       <label>Additional Notes</label>
                       <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
                     </div>
                     {bookingError && <div className="booking-error" role="alert">{bookingError}</div>}
-                    <button type="submit" className="btn-primary btn-full btn-lg" disabled={formSent || bookingSending}>
-                      {formSent ? '✓ Request Submitted' : bookingSending ? 'Sending…' : 'Request My Appointment'}
-                    </button>
-                    {formSent && (
-                      <p className="form-success">Your request has been submitted. We'll be in touch shortly.</p>
+                    {formSent && bookingReceipt ? (
+                      <div className="booking-confirm" role="status">
+                        <p className="eyebrow">REQUEST RECEIVED</p>
+                        <h3>We’ll confirm this window.</h3>
+                        <dl>
+                          <div><dt>Service</dt><dd>{bookingReceipt.service}</dd></div>
+                          <div><dt>When</dt><dd>{bookingReceipt.when}</dd></div>
+                          <div><dt>Where</dt><dd>{bookingReceipt.where}</dd></div>
+                          {bookingReceipt.id && <div><dt>Request</dt><dd>#{String(bookingReceipt.id).slice(0, 8)}</dd></div>}
+                        </dl>
+                        <p>Thanks {bookingReceipt.name.split(' ')[0]}. We hold this as a request until North Splash confirms. Watch email, or call 330-990-3956.</p>
+                        <button type="button" className="btn-outline" onClick={() => { setFormSent(false); setBookingReceipt(null); }}>Book another vehicle</button>
+                      </div>
+                    ) : (
+                      <button type="submit" className="btn-primary btn-full btn-lg" disabled={bookingSending}>
+                        {bookingSending ? 'Sending…' : 'Request my appointment'}
+                      </button>
                     )}
                   </form>
                 </FadeIn>

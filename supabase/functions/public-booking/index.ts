@@ -27,14 +27,27 @@ Deno.serve(async(req:Request)=>{
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({error:'Please enter a valid email address.'},400);
     const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data:existingProfile}=await admin.from('profiles').select('id').ilike('email',email).maybeSingle();
-    const payload={
+    const service_address=clean(body.service_address,240);
+    const preferred=clean(body.preferred_date,20)&&clean(body.preferred_time,20)?`${clean(body.preferred_date,20)} ${clean(body.preferred_time,20)}`:'';
+    const notes=[clean(body.notes,1500),preferred&&!String(body.notes||'').includes('Preferred window')?`Preferred window: ${preferred}`:''].filter(Boolean).join('\n')||null;
+    let scheduled_at:string|null=null;
+    const rawAt=clean(body.scheduled_at,40);
+    if(rawAt){const d=new Date(rawAt);if(!Number.isNaN(d.getTime()))scheduled_at=d.toISOString()}
+    const payload:Record<string,unknown>={
       user_id:existingProfile?.id||null,customer_name:name,customer_email:email,customer_phone:phone||null,
       service_name:service,package_name:clean(body.package_name,160)||null,
       add_ons:Array.isArray(body.add_ons)?body.add_ons.map((x:unknown)=>clean(x,100)).slice(0,20):[],
       vehicle_info:vehicle||null,price:Math.max(0,Math.min(Number(body.price)||0,100000)),
-      notes:clean(body.notes,1500)||null,status:'pending',source_channel:'northsplash.com'
+      notes,status:'pending',source_channel:'northsplash.com',
+      service_address:service_address||null,
+      scheduled_at
     };
-    const {data,error}=await admin.from('appointments').insert(payload).select('id,created_at').single();
+    let inserted=await admin.from('appointments').insert(payload).select('id,created_at').single();
+    if(inserted.error && /service_address|scheduled_at/i.test(inserted.error.message||'')){
+      delete payload.service_address; delete payload.scheduled_at;
+      inserted=await admin.from('appointments').insert(payload).select('id,created_at').single();
+    }
+    const {data,error}=inserted;
     if(error) throw error;
     await admin.from('audit_logs').insert({action:'public.booking_received',entity_type:'appointment',entity_id:data.id,details:{customer_email:email,service_name:service,source:'northsplash.com'}}).then(()=>{});
     return json({success:true,appointment_id:data.id});
