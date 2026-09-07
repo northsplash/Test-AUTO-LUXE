@@ -119,7 +119,7 @@ export default function Apply() {
       try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Unable to send your application.';
-      setError(/row-level security|permission denied|42501|failed to fetch|failed to send|edge function|functionshttperror|non-2xx/i.test(raw)
+      setError(/row-level security|permission denied|42501|failed to fetch|failed to send|edge function|functionshttperror|non-2xx|schema cache|not find the function|requested function was not found/i.test(raw)
         ? `Unable to send your application. Call ${MARKET.phone} and we will take it by phone.`
         : raw);
     } finally {

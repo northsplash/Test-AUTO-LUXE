@@ -193,8 +193,13 @@ export default async function handler(req: Request) {
       return json({ success: true, id: savedId(retry.payload) || 'ok', duplicate: false });
     }
 
-    const message = messageOf(rpc.payload) || messageOf(fn.payload) || messageOf(retry.payload) || messageOf(insert.payload)
-      || 'The hiring board could not take this application.';
+    const ignorable = /not find the function|schema cache|not found|requested function was not found/i
+    const restMessage = messageOf(retry.payload) || messageOf(insert.payload)
+    const rpcMessage = messageOf(rpc.payload)
+    const fnMessage = messageOf(fn.payload)
+    const message = [restMessage, rpcMessage, fnMessage].find((m) => m && !ignorable.test(m))
+      || restMessage
+      || 'The hiring board could not take this application.'
     throw new Error(message);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 400);
