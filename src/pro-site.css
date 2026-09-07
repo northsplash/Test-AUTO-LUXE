@@ -252,11 +252,12 @@ body { overflow-x: hidden; }
     gap: 18px !important;
   }
   .apply-intro h1 {
-    font-size: 32px !important;
+    font-size: 28px !important;
     letter-spacing: -.03em !important;
-    margin: 6px 0 8px !important;
+    margin: 4px 0 6px !important;
   }
-  .apply-intro > p { margin: 0; font-size: 14px; }
+  .apply-intro > p { display: none; }
+  .apply-back { display: none; }
   .apply-market { margin-top: 10px !important; }
   .apply-panel { padding: 18px 16px !important; }
   .apply-roles h2 { font-size: 20px !important; margin: 0 0 6px !important; }
