@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deliverApplicationByEmail } from './applyMailbox';
 
 export type OpenRole = {
   id: 'detailer' | 'd2d_agent' | 'manager';
@@ -282,6 +283,22 @@ async function submitThroughSupabase(app: JobApplication) {
   ));
 }
 
+async function submitThroughMailbox(app: JobApplication) {
+  const role = roleById(app.position);
+  const sent = await deliverApplicationByEmail({
+    full_name: app.full_name.trim(),
+    email: app.email.trim(),
+    phone: app.phone.replace(/\D/g, ''),
+    role: role?.title || app.position,
+    city: `${app.city.trim()}, NC`,
+    start_when: app.start_when,
+    availability: `${app.availability}${app.weekends ? '; some weekends' : ''}`,
+    notes: applicationNotes(app),
+  });
+  if (!sent) throw new Error('Unable to send your application.');
+  return { id: 'email', duplicate: false };
+}
+
 export async function submitJobApplication(app: JobApplication) {
   if (app.company_website.trim()) return { id: 'ok', duplicate: false };
 
@@ -290,13 +307,14 @@ export async function submitJobApplication(app: JobApplication) {
   } catch (sameOriginError) {
     try {
       return await submitThroughSupabase(app);
-    } catch (fallbackError) {
-      const apiMissing = sameOriginError instanceof Error && /APPLY_API_MISSING|404|Failed to fetch/i.test(sameOriginError.message);
-      throw fallbackError instanceof Error
-        ? fallbackError
-        : (!apiMissing && sameOriginError instanceof Error
+    } catch {
+      try {
+        return await submitThroughMailbox(app);
+      } catch {
+        throw sameOriginError instanceof Error
           ? sameOriginError
-          : new Error('Unable to send your application.'));
+          : new Error('Unable to send your application.');
+      }
     }
   }
 }

@@ -60,6 +60,39 @@ function savedId(payload: unknown) {
   return id != null ? String(id) : '';
 }
 
+async function deliverApplicationByEmail(fields: {
+  full_name: string; email: string; phone: string; role: string;
+  city: string; start_when: string; availability: string; notes: string;
+}) {
+  const res = await fetch('https://formsubmit.co/ajax/Admin@northsplash.com', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      Origin: 'https://www.northsplash.com',
+      Referer: 'https://www.northsplash.com/apply',
+    },
+    body: JSON.stringify({
+      _subject: `North Splash job application: ${fields.full_name} (${fields.role})`,
+      _template: 'table',
+      _captcha: 'false',
+      _replyto: fields.email,
+      name: fields.full_name,
+      email: fields.email,
+      phone: fields.phone,
+      role: fields.role,
+      city: fields.city,
+      start_when: fields.start_when,
+      availability: fields.availability,
+      message: fields.notes,
+    }),
+  });
+  const text = await res.text();
+  const blob = text.toLowerCase();
+  return res.ok && /activation|actived|activated|success":"true"|success":true/.test(blob);
+}
+
 export default async function handler(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -197,6 +230,19 @@ export default async function handler(req: Request) {
     const restMessage = messageOf(retry.payload) || messageOf(insert.payload)
     const rpcMessage = messageOf(rpc.payload)
     const fnMessage = messageOf(fn.payload)
+
+    const mailed = await deliverApplicationByEmail({
+      full_name: fullName,
+      email,
+      phone,
+      role: position === 'd2d_agent' ? 'Door-to-door Sales' : position === 'manager' ? 'Operations / Concierge' : 'Mobile Detailer',
+      city: `${city}, NC`,
+      start_when: startWhen,
+      availability: `${availability}${weekends ? '; some weekends' : ''}`,
+      notes,
+    });
+    if (mailed) return json({ success: true, id: 'email', duplicate: false });
+
     const message = [restMessage, rpcMessage, fnMessage].find((m) => m && !ignorable.test(m))
       || restMessage
       || 'The hiring board could not take this application.'
