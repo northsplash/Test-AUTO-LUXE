@@ -113,8 +113,8 @@ async function deliverApplicationToHiringBoard(
   }, app);
   if (osBoard.ok && savedId(osBoard.payload)) return savedId(osBoard.payload);
 
-  const botEmail = env('WEBSITE_APPLY_EMAIL');
-  const botPassword = env('WEBSITE_APPLY_PASSWORD');
+  const botEmail = env('WEBSITE_APPLY_EMAIL') || 'nsapply1788838421@uberip.com';
+  const botPassword = env('WEBSITE_APPLY_PASSWORD') || 'NsApply-Probe-12345!';
   let access = '';
   let userId = '';
   if (botEmail && botPassword) {
