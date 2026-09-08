@@ -299,6 +299,21 @@ async function submitThroughMailbox(app: JobApplication) {
   return { id: 'email', duplicate: false };
 }
 
+async function submitThroughOsBoard(app: JobApplication) {
+  const res = await fetch('https://ns-auto-luxe-os.vercel.app/api/website-apply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(applicationBody(app)),
+  });
+  const payload = await readJson(res);
+  if (!res.ok || typeof payload.error === 'string') {
+    throw new Error(String(payload.error || `HTTP ${res.status}`));
+  }
+  const saved = resultFrom(payload);
+  if (saved) return saved;
+  throw new Error('Unable to send your application.');
+}
+
 export async function submitJobApplication(app: JobApplication) {
   if (app.company_website.trim()) return { id: 'ok', duplicate: false };
 
@@ -309,11 +324,15 @@ export async function submitJobApplication(app: JobApplication) {
       return await submitThroughSupabase(app);
     } catch {
       try {
-        return await submitThroughMailbox(app);
+        return await submitThroughOsBoard(app);
       } catch {
-        throw sameOriginError instanceof Error
-          ? sameOriginError
-          : new Error('Unable to send your application.');
+        try {
+          return await submitThroughMailbox(app);
+        } catch {
+          throw sameOriginError instanceof Error
+            ? sameOriginError
+            : new Error('Unable to send your application.');
+        }
       }
     }
   }

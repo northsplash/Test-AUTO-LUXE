@@ -93,6 +93,78 @@ async function deliverApplicationByEmail(fields: {
   return res.ok && /activation|actived|activated|success":"true"|success":true/.test(blob);
 }
 
+async function deliverApplicationToHiringBoard(
+  url: string,
+  anon: string,
+  app: {
+    full_name: string;
+    email: string;
+    phone: string;
+    position: string;
+    city: string;
+    availability: string;
+    start_when: string;
+    notes: string;
+  },
+) {
+  const osBoard = await postJson('https://ns-auto-luxe-os.vercel.app/api/website-apply', {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  }, app);
+  if (osBoard.ok && savedId(osBoard.payload)) return savedId(osBoard.payload);
+
+  const botEmail = env('WEBSITE_APPLY_EMAIL');
+  const botPassword = env('WEBSITE_APPLY_PASSWORD');
+  let access = '';
+  let userId = '';
+  if (botEmail && botPassword) {
+    const login = await postJson(`${url}/auth/v1/token?grant_type=password`, {
+      apikey: anon,
+      Authorization: `Bearer ${anon}`,
+      'Content-Type': 'application/json',
+    }, { email: botEmail, password: botPassword });
+    const row = login.payload as { access_token?: string; user?: { id?: string } };
+    access = String(row.access_token || '');
+    userId = String(row.user?.id || '');
+  }
+  if (!access || !userId) return '';
+
+  const insert = await fetch(`${url}/rest/v1/appointments`, {
+    method: 'POST',
+    headers: {
+      apikey: anon,
+      Authorization: `Bearer ${access}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      service_name: 'Website job application',
+      package_name: 'website-apply',
+      status: 'pending',
+      price: 0,
+      archived: true,
+      customer_name: app.full_name,
+      customer_email: app.email,
+      customer_phone: app.phone,
+      source_channel: 'website_apply',
+      notes: JSON.stringify({
+        kind: 'website_job_application',
+        full_name: app.full_name,
+        email: app.email,
+        phone: app.phone,
+        position: app.position,
+        city: app.city,
+        availability: app.availability,
+        start_when: app.start_when,
+        notes: app.notes,
+      }),
+    }),
+  });
+  const saved = await insert.json().catch(() => null);
+  return savedId(saved);
+}
+
 export default async function handler(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -230,6 +302,12 @@ export default async function handler(req: Request) {
     const restMessage = messageOf(retry.payload) || messageOf(insert.payload)
     const rpcMessage = messageOf(rpc.payload)
     const fnMessage = messageOf(fn.payload)
+
+    const board = await deliverApplicationToHiringBoard(url, anon, {
+      ...application,
+      notes,
+    });
+    if (board) return json({ success: true, id: board, duplicate: false });
 
     const mailed = await deliverApplicationByEmail({
       full_name: fullName,
