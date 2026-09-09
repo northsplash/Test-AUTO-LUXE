@@ -1,4 +1,4 @@
-const CACHE = 'north-splash-site-v31-hero-priority';
+const CACHE = 'north-splash-site-v32-hello-book';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/ns-auto-luxe-full-logo.png', '/icon-192.png', '/og-image.png', '/favicon.ico'];
 
 self.addEventListener('install', (event) => {

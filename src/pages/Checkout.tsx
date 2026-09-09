@@ -317,9 +317,12 @@ export default function Checkout() {
         <main id="main" className="luxe-checkout-main">
           <section className="luxe-checkout-card">
             <p className="eyebrow">SECURE CHECKOUT</p>
-            <h1>No booking to complete</h1>
-            <p>Start from the detailing site, choose a service, and we will bring you back here to pay. Or call {MARKET.phone} to book by phone.</p>
-            <Link className="btn-white" to={{ pathname: '/', hash: 'booking' }}>Book a detail</Link>
+            <h1>Nothing to pay yet</h1>
+            <p>Request a window on the site first, then we send you here to pay. Or skip the form and book by phone.</p>
+            <div className="luxe-checkout-empty-actions">
+              <Link className="btn-white" to={{ pathname: '/', hash: 'booking' }}>Book a detail</Link>
+              <a className="btn-outline" href={`tel:${MARKET.phoneTel}`}>Call {MARKET.phone}</a>
+            </div>
           </section>
         </main>
         <Footer />

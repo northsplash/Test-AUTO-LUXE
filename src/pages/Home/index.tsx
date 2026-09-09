@@ -317,6 +317,11 @@ export default function Home() {
       setBookingStep(4);
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setBookingError('Enter a real email so we can send the confirmation.');
+      setBookingStep(4);
+      return;
+    }
     setBookingError('');
     setBookingSending(true);
     try {
@@ -1309,8 +1314,7 @@ export default function Home() {
           <p className="eyebrow">CLIENT EXPERIENCE</p>
           <h2>Built to earn the<br /><em>five-star feeling.</em></h2>
           <p>
-            Great detailing should be easy to notice and easy to remember. This space is ready for verified
-            North Splash customer reviews as they are collected.
+            We only publish words from people we have actually detailed. If North Splash has already been in your driveway, send a note — or call {MARKET.phone} and tell us what stood out.
           </p>
         </FadeIn>
 
@@ -1322,8 +1326,7 @@ export default function Home() {
             <span className="review-kicker">YOUR EXPERIENCE MATTERS</span>
             <h3>Already detailed by North Splash?</h3>
             <p>
-              Tell us what stood out — the finish, convenience, communication, or overall service. We only want
-              real customer feedback shown here.
+              Tell us what stood out — the finish, the driveway timing, or how we confirmed the window. Real notes only. Email {MARKET.email} or call {MARKET.phone}.
             </p>
             <a
               className="review-action"

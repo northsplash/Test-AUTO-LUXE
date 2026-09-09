@@ -463,6 +463,34 @@ section {
   }
 }
 
+.luxe-checkout-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* Last-wins: keep Book Now in the header on phone and tablet. */
+@media (max-width: 1100px) {
+  .nav-header .nav-brand {
+    max-width: calc(100vw - 220px) !important;
+  }
+  .nav-header .nav-book,
+  .nav-book {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 12px !important;
+    font-size: 10px !important;
+    letter-spacing: .16em !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+    font-weight: 800;
+  }
+}
+
 @media (max-width: 430px) {
   .hero-stats {
     gap: 12px 8px !important;

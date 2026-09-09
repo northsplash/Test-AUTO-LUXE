@@ -4,7 +4,7 @@ export const MARKET = {
   label: 'North Carolina',
   phone: '330-990-3956',
   phoneTel: '3309903956',
-  email: 'support@northsplash.com',
+  email: 'hello@northsplash.com',
   phonePlaceholder: '330-990-3956',
 } as const;
 
