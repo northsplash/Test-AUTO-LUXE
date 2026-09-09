@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Briefcase, Check, MapPin } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { MARKET, looksFakePhone } from '@/lib/market';
+import { trackPageView } from '@/lib/auth';
 import {
   OPEN_ROLES,
   emptyApplication,
@@ -70,6 +71,10 @@ export default function Apply() {
     } catch { return 1; }
   });
   const role = OPEN_ROLES.find((r) => r.id === form.position)!;
+
+  useEffect(() => {
+    trackPageView('/apply').catch(() => {});
+  }, []);
 
   const patch = (next: Partial<JobApplication>) => setForm((p) => ({ ...p, ...next }));
 

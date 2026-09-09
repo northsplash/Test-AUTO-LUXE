@@ -5,6 +5,7 @@ import { sendCommunication } from '@/lib/communications';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { MARKET } from '@/lib/market';
+import { trackPageView } from '@/lib/auth';
 
 declare global {
   interface Window {
@@ -41,6 +42,10 @@ export default function Checkout() {
         }[];
       }
     | undefined;
+
+  useEffect(() => {
+    trackPageView('/checkout').catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!checkout) {

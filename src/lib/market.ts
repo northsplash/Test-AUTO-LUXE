@@ -5,7 +5,7 @@ export const MARKET = {
   phone: '330-990-3956',
   phoneTel: '3309903956',
   email: 'support@northsplash.com',
-  phonePlaceholder: '336-201-4400',
+  phonePlaceholder: '330-990-3956',
 } as const;
 
 export function phoneDigits(value: string) {

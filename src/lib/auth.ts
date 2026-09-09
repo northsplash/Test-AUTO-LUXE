@@ -51,16 +51,30 @@ export async function getProfile(userId: string) {
   return data;
 }
 
+const VISIT_BLOCK_KEY = 'ns_visit_blocked_v2';
+
+function visitStore(key: string, value?: string) {
+  try {
+    if (value === undefined) return sessionStorage.getItem(key);
+    sessionStorage.setItem(key, value);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 export async function trackPageView(page: string) {
-  const sessionId =
-    sessionStorage.getItem('ns_session') || crypto.randomUUID();
+  if (typeof window === 'undefined') return;
+  if (visitStore(VISIT_BLOCK_KEY) === '1') return;
 
-  sessionStorage.setItem('ns_session', sessionId);
+  const sessionId = visitStore('ns_session') || crypto.randomUUID();
+  visitStore('ns_session', sessionId);
 
-  await supabase.from('site_visits').insert({
-    page,
-    referrer: document.referrer || null,
-    session_id: sessionId,
-    user_agent: navigator.userAgent,
+  const { error } = await supabase.rpc('log_site_visit', {
+    p_page: String(page || '/').slice(0, 200),
+    p_referrer: (document.referrer || '').slice(0, 500) || null,
+    p_session_id: sessionId,
+    p_user_agent: (navigator.userAgent || '').slice(0, 400) || null,
   });
+  if (error) visitStore(VISIT_BLOCK_KEY, '1');
 }
