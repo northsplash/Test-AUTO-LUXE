@@ -507,3 +507,49 @@ section {
   }
 }
 
+.booking-form input,
+.booking-form textarea,
+.form-group input,
+.form-group textarea {
+  text-transform: none !important;
+}
+
+/* Last-wins: full-screen mobile menu. Header overflow was clipping the drawer. */
+@media (max-width: 1100px) {
+  .nav-header {
+    overflow: visible !important;
+  }
+  .nav-header .nav-links,
+  .nav-links:not(.nav-open) {
+    display: none !important;
+  }
+  .nav-header .nav-links.nav-open,
+  .nav-links.nav-open {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    z-index: 10001 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: calc(92px + env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    background: #050505 !important;
+  }
+  .nav-header .menu-toggle,
+  .nav-right {
+    z-index: 10003 !important;
+  }
+}
+

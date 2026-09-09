@@ -172,6 +172,10 @@ export default function Home() {
   const heroShift = useParallax(0.34);
   const dateOptions = preferredDateOptions();
   const timeSlots = availableSlots(formData.preferred_date);
+  const patchBooking = (next: Partial<typeof formData>) => {
+    setBookingError('');
+    setFormData((p) => ({ ...p, ...next }));
+  };
 
   useEffect(() => {
     setTimeout(() => setHeroVisible(true), 100);
@@ -412,8 +416,8 @@ export default function Home() {
             sizes="100vw"
             width={1600}
             height={900}
-            fetchPriority="high"
             decoding="async"
+            {...({ fetchpriority: 'high' } as React.ImgHTMLAttributes<HTMLImageElement>)}
             alt="Luxury vehicle after a North Splash Auto Luxe detail"
           />
           <div className="hero-gradient" />
@@ -1135,7 +1139,7 @@ export default function Home() {
                           </div>
                           <div className="form-group">
                             <label>Year / Make / Model</label>
-                            <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => setFormData(p => ({...p, vehicle: e.target.value}))} />
+                            <input placeholder="e.g. 2022 BMW M4" value={formData.vehicle} onChange={e => patchBooking({ vehicle: e.target.value })} />
                           </div>
                           <div className="form-group">
                             <label>Optional Add-Ons</label>
@@ -1159,7 +1163,7 @@ export default function Home() {
                           <div className="form-row">
                             <div className="form-group">
                               <label>Preferred date</label>
-                              <select value={formData.preferred_date} onChange={e => setFormData(p => ({...p, preferred_date: e.target.value}))}>
+                              <select value={formData.preferred_date} onChange={e => patchBooking({ preferred_date: e.target.value })}>
                                 {dateOptions.map((d) => (
                                   <option key={d.value} value={d.value}>{d.label}</option>
                                 ))}
@@ -1168,7 +1172,7 @@ export default function Home() {
                             <div className="form-group">
                               <label>Preferred time</label>
                               {timeSlots.length ? (
-                                <select value={formData.preferred_time} onChange={e => setFormData(p => ({...p, preferred_time: e.target.value}))}>
+                                <select value={formData.preferred_time} onChange={e => patchBooking({ preferred_time: e.target.value })}>
                                   {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
                                 </select>
                               ) : (
@@ -1178,7 +1182,7 @@ export default function Home() {
                           </div>
                           <div className="form-group">
                             <label>Service location</label>
-                            <input required placeholder="Street, city, NC" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} autoComplete="street-address" />
+                            <input required placeholder="Street, city, NC" value={formData.address} onChange={e => patchBooking({ address: e.target.value })} autoComplete="street-address" spellCheck={false} />
                           </div>
                         </>
                       )}
@@ -1187,20 +1191,20 @@ export default function Home() {
                           <div className="form-row">
                             <div className="form-group">
                               <label>Full Name</label>
-                              <input required placeholder="Full name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} autoComplete="name" />
+                              <input required placeholder="Full name" value={formData.name} onChange={e => patchBooking({ name: e.target.value })} autoComplete="name" />
                             </div>
                             <div className="form-group">
                               <label>Phone Number</label>
-                              <input required type="tel" inputMode="tel" placeholder={MARKET.phonePlaceholder} value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} autoComplete="tel" />
+                              <input required type="tel" inputMode="tel" placeholder={MARKET.phonePlaceholder} value={formData.phone} onChange={e => patchBooking({ phone: e.target.value })} autoComplete="tel" />
                             </div>
                           </div>
                           <div className="form-group">
                             <label>Email Address</label>
-                            <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} autoComplete="email" />
+                            <input required type="email" placeholder="your@email.com" value={formData.email} onChange={e => patchBooking({ email: e.target.value })} autoComplete="email" />
                           </div>
                           <div className="form-group">
                             <label>Additional Notes</label>
-                            <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                            <textarea rows={3} placeholder="Anything we should know about your vehicle..." value={formData.notes} onChange={e => patchBooking({ notes: e.target.value })} />
                           </div>
                         </>
                       )}

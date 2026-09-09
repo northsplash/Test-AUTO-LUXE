@@ -65,6 +65,8 @@ function visitStore(key: string, value?: string) {
 
 export async function trackPageView(page: string) {
   if (typeof window === 'undefined') return;
+  // Site-visit RPC is not live until that migration is applied. Skip the network call so the console stays clean.
+  if (import.meta.env.VITE_LOG_SITE_VISITS !== 'true') return;
   const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '');
   if (!supabaseUrl || /placeholder\.supabase\.co/i.test(supabaseUrl)) return;
   if (visitStore(VISIT_BLOCK_KEY) === '1') return;
